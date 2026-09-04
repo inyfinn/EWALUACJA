@@ -1,0 +1,6 @@
+{
+  "name": "Ocena pracownika: Krzysztof Wieczorek",
+  "description": "Anonimowa roczna ankieta ewaluacyjna pracownika (Krzysztof Wieczorek, Kubara Sp. z o.o.) na 4 polach: komunikacja, terminowość, jakość, wkład własny.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
