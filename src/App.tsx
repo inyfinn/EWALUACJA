@@ -26,6 +26,11 @@ import { TokenManager } from './components/TokenManager';
 import { ReportDashboard } from './components/ReportDashboard';
 import { SurveyFillView } from './components/SurveyFillView';
 import { AdminLoginView } from './components/AdminLoginView';
+import { SurveyManager } from './components/custom/SurveyManager';
+import { SurveyBuilder } from './components/custom/SurveyBuilder';
+import { CustomSurveyAdmin } from './components/custom/CustomSurveyAdmin';
+import { CustomSurveyFill } from './components/custom/CustomSurveyFill';
+import { LayoutGrid } from 'lucide-react';
 
 export function App() {
   // Modes: 'survey' (for employee respondent) vs 'admin' (for Krzysztof Wieczorek)
@@ -52,6 +57,19 @@ export function App() {
   const [tokens, setTokens] = useState(getStoredTokens());
   const [responses, setResponses] = useState(getStoredResponses());
   const [urlToken, setUrlToken] = useState<string>('');
+
+  // --- Survey Management System (additive) ---
+  // ?survey=<slug> opens a custom survey for public filling (no login).
+  const [customSurveyParam] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('survey') || '';
+  });
+  const customTokenParam = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('token') || undefined)
+    : undefined;
+  // Admin management sub-views layered on top of the organizer panel.
+  const [panelView, setPanelView] = useState<'default' | 'manager' | 'custom-admin' | 'builder'>('default');
+  const [activeCustomId, setActiveCustomId] = useState<string | null>(null);
 
   const refreshData = async () => {
     try {
@@ -138,6 +156,13 @@ export function App() {
     sessionStorage.removeItem('kw_organizer_authed');
     setViewMode('survey');
   };
+
+  // ==========================================
+  // VIEW 0: PUBLICZNE WYPEŁNIANIE ANKIETY UTWORZONEJ W MENEDŻERZE (bez logowania)
+  // ==========================================
+  if (customSurveyParam) {
+    return <CustomSurveyFill surveyId={customSurveyParam} token={customTokenParam} />;
+  }
 
   // ==========================================
   // VIEW 1: DLA WSPÓŁPRACOWNIKA (Czysta Ankieta)
@@ -266,6 +291,39 @@ export function App() {
   }
 
   // ==========================================
+  // SURVEY MANAGEMENT SYSTEM (dodatkowy panel) — dostępny po zalogowaniu
+  // ==========================================
+  if (panelView === 'manager') {
+    return (
+      <SurveyManager
+        onOpenBuiltin={() => setPanelView('default')}
+        onOpenCustom={(id) => { setActiveCustomId(id); setPanelView('custom-admin'); }}
+        onCreate={() => { setActiveCustomId(null); setPanelView('builder'); }}
+        onBack={() => setPanelView('default')}
+      />
+    );
+  }
+  if (panelView === 'builder') {
+    return (
+      <SurveyBuilder
+        surveyId={activeCustomId}
+        onBack={() => setPanelView('manager')}
+        onSaved={(id) => { setActiveCustomId(id); setPanelView('custom-admin'); }}
+      />
+    );
+  }
+  if (panelView === 'custom-admin' && activeCustomId) {
+    return (
+      <CustomSurveyAdmin
+        surveyId={activeCustomId}
+        onBack={() => setPanelView('manager')}
+        onOpenFill={(slug, token) => window.open(`/?survey=${slug}${token ? `&token=${token}` : ''}`, '_blank')}
+        onEdit={(id) => { setActiveCustomId(id); setPanelView('builder'); }}
+      />
+    );
+  }
+
+  // ==========================================
   // VIEW 3: DLA ORGANIZATORA (Panel Zarządzania & Raporty)
   // ==========================================
   return (
@@ -295,6 +353,15 @@ export function App() {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPanelView('manager')}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="System zarządzania ankietami: twórz i zarządzaj wieloma ankietami"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Menedżer Ankiet</span>
+                <span className="sm:hidden">Ankiety</span>
+              </button>
               <button
                 onClick={() => {
                   setUrlToken('');
