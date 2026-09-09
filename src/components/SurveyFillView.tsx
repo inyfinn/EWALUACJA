@@ -6,7 +6,14 @@ import {
 } from 'lucide-react';
 import { SurveyQuestion, ScoreLevelDescription, SurveyResponse } from '../types';
 import { SCORE_LEVEL_DESCRIPTIONS } from '../data/surveyQuestions';
-import { saveResponse, getStoredTokens, validateTokenCode, getStoredResponses } from '../utils/surveyStorage';
+import { 
+  saveResponseAsync, 
+  getStoredTokens, 
+  validateTokenCode, 
+  getStoredResponses,
+  fetchTokensFromServer,
+  fetchResponsesFromServer
+} from '../utils/surveyStorage';
 import { SurveyCompletionSummary } from './SurveyCompletionSummary';
 import confetti from 'canvas-confetti';
 
@@ -194,24 +201,43 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   }, []);
 
   useEffect(() => {
-    if (prefilledToken) {
-      const validation = validateTokenCode(prefilledToken);
-      if (validation.valid && !validation.used) {
-        setTokenInput(prefilledToken);
-        setTokenLabel(validation.label);
-        setIsTokenVerified(true);
-        setIsTokenAlreadyUsed(false);
-        setTokenError(null);
-      } else if (validation.used) {
-        setIsTokenAlreadyUsed(true);
-        setIsTokenVerified(false);
-        setTokenError(validation.error || 'Ten link został już wykorzystany do oddania głosu.');
+    let isMounted = true;
+
+    async function initTokenAndPrior() {
+      // 1. Fetch latest tokens and prior responses from server
+      const [serverTokens, serverResponses] = await Promise.all([
+        fetchTokensFromServer(),
+        fetchResponsesFromServer()
+      ]);
+
+      if (!isMounted) return;
+      setPriorResponsesSnapshot(serverResponses);
+
+      if (prefilledToken) {
+        const validation = validateTokenCode(prefilledToken, serverTokens);
+        if (validation.valid && !validation.used) {
+          setTokenInput(prefilledToken);
+          setTokenLabel(validation.label);
+          setIsTokenVerified(true);
+          setIsTokenAlreadyUsed(false);
+          setTokenError(null);
+        } else if (validation.used) {
+          setIsTokenAlreadyUsed(true);
+          setIsTokenVerified(false);
+          setTokenError(validation.error || 'Ten link został już wykorzystany do oddania głosu.');
+        } else {
+          setTokenError(validation.error || 'Nieprawidłowy kod.');
+        }
       } else {
-        setTokenError(validation.error || 'Nieprawidłowy kod.');
+        setIsTokenVerified(true);
       }
-    } else {
-      setIsTokenVerified(true);
     }
+
+    initTokenAndPrior();
+
+    return () => {
+      isMounted = false;
+    };
   }, [prefilledToken]);
 
   const handleStartSurvey = () => {
@@ -235,16 +261,16 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Capture snapshot of prior responses before saving this one
     try {
-      const prior = getStoredResponses();
+      const prior = await fetchResponsesFromServer();
       setPriorResponsesSnapshot(prior);
     } catch {
       // ignore
     }
 
-    const res = saveResponse({
+    const newResponse: SurveyResponse = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       tokenUsed: tokenInput || 'PREVIEW',
@@ -253,7 +279,9 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       dimensionComments,
       collaborationContext,
       teamRelation
-    });
+    };
+
+    const res = await saveResponseAsync(newResponse);
 
     if (res.success) {
       confetti({
@@ -264,6 +292,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       });
       setSurveyStage('submitted');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      onCompleted();
     } else {
       setSubmitError(res.error || 'Wystąpił nieznany błąd zapisu.');
     }

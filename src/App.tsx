@@ -6,7 +6,9 @@ import {
   Trash2, 
   Lock, 
   Eye, 
-  ChevronLeft 
+  ChevronLeft,
+  LogOut,
+  ArrowRight
 } from 'lucide-react';
 import { DEFAULT_QUESTIONS } from './data/surveyQuestions';
 import { 
@@ -14,24 +16,69 @@ import {
   getStoredResponses, 
   computeDimensionsAnalytics, 
   clearAllResponses, 
-  validateTokenCode
+  validateTokenCode,
+  fetchTokensFromServer,
+  fetchResponsesFromServer,
+  clearAllResponsesAsync,
+  saveResponseAsync
 } from './utils/surveyStorage';
 import { TokenManager } from './components/TokenManager';
 import { ReportDashboard } from './components/ReportDashboard';
 import { SurveyFillView } from './components/SurveyFillView';
+import { AdminLoginView } from './components/AdminLoginView';
 
 export function App() {
   // Modes: 'survey' (for employee respondent) vs 'admin' (for Krzysztof Wieczorek)
   const [viewMode, setViewMode] = useState<'survey' | 'admin'>('survey');
   const [adminTab, setAdminTab] = useState<'tokens' | 'report'>('tokens');
   
+  // Strict admin authentication check
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('kw_organizer_authed') === 'true';
+    }
+    return false;
+  });
+
+  // Track if current visitor arrived via an invitation link / token
+  const [isRespondentMode, setIsRespondentMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return Boolean(params.get('token') || params.get('kod') || sessionStorage.getItem('is_respondent_link') === 'true');
+    }
+    return false;
+  });
+
   const [tokens, setTokens] = useState(getStoredTokens());
   const [responses, setResponses] = useState(getStoredResponses());
   const [urlToken, setUrlToken] = useState<string>('');
 
-  const refreshData = () => {
-    setTokens(getStoredTokens());
-    setResponses(getStoredResponses());
+  const refreshData = async () => {
+    try {
+      const [serverTokens, serverResponses] = await Promise.all([
+        fetchTokensFromServer(),
+        fetchResponsesFromServer()
+      ]);
+      setTokens(serverTokens);
+      setResponses(serverResponses);
+
+      // Auto-sync any local responses from this browser to server if missing
+      const local = getStoredResponses();
+      let didSync = false;
+      for (const item of local) {
+        if (!serverResponses.some(s => s.id === item.id)) {
+          await saveResponseAsync(item);
+          didSync = true;
+        }
+      }
+      if (didSync) {
+        const updatedResponses = await fetchResponsesFromServer();
+        setResponses(updatedResponses);
+      }
+    } catch {
+      setTokens(getStoredTokens());
+      setResponses(getStoredResponses());
+    }
   };
 
   useEffect(() => {
@@ -44,28 +91,47 @@ export function App() {
       const adminParam = params.get('admin') || params.get('panel');
 
       if (tokenParam) {
+        // STRICT: Arrived via invitation link with token
         setUrlToken(tokenParam.trim().toUpperCase());
+        setIsRespondentMode(true);
+        setViewMode('survey');
+        sessionStorage.setItem('is_respondent_link', 'true');
+      } else if (sessionStorage.getItem('is_respondent_link') === 'true' && sessionStorage.getItem('kw_organizer_authed') !== 'true') {
+        // Marked as respondent in this session and not logged in as admin
+        setIsRespondentMode(true);
         setViewMode('survey');
       } else if (adminParam === 'true' || adminParam === '1') {
         setViewMode('admin');
       } else {
-        // Default: if no tokens or params, keep survey mode with podgląd option
         setUrlToken('');
       }
     }
+
+    // Live background polling every 4 seconds to reflect survey completions in real time
+    const interval = setInterval(() => {
+      refreshData();
+    }, 4000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const stats = computeDimensionsAnalytics(DEFAULT_QUESTIONS, responses);
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
     if (window.confirm('Czy na pewno chcesz wyczyścić wszystkie odpowiedzi i zresetować raport do 0 (pusty stan na prawdziwe głosy)?')) {
-      clearAllResponses();
-      refreshData();
+      await clearAllResponsesAsync();
+      await refreshData();
     }
   };
 
   const handleTestTokenFromAdmin = (tokenCode: string) => {
     setUrlToken(tokenCode);
+    setViewMode('survey');
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    sessionStorage.removeItem('kw_organizer_authed');
     setViewMode('survey');
   };
 
@@ -75,6 +141,24 @@ export function App() {
   if (viewMode === 'survey') {
     return (
       <div className="min-h-screen bg-slate-100/90 text-slate-900 pb-16 font-sans antialiased selection:bg-slate-200 print:bg-white print:pb-0">
+        
+        {/* Banner only for authenticated admin previewing the survey */}
+        {isAdminAuthenticated && (
+          <div className="bg-amber-500 text-slate-950 font-bold px-4 py-2 text-xs flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              <span>Tryb podglądu ankiety (Zalogowany jako Organizator: Krzysztof Wieczorek)</span>
+            </div>
+            <button
+              onClick={() => setViewMode('admin')}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1 rounded-lg text-xs font-black transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <span>Wróć do Panelu Organizatora</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Minimal, elegant, distraction-free header for survey taker */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs print:hidden">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
@@ -92,8 +176,9 @@ export function App() {
               </div>
             </div>
             
-            <div className="text-[11px] text-slate-400 font-medium">
-              Formularz anonimowy
+            <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Formularz anonimowy</span>
             </div>
           </div>
         </header>
@@ -107,28 +192,62 @@ export function App() {
             onCompleted={() => {
               refreshData();
             }}
-            onSwitchToAdmin={() => {
-              setViewMode('admin');
-            }}
           />
         </main>
 
-        {/* Discreet Switch to Organizer Panel in Footer */}
+        {/* Footer: Strictly NO admin button for invitation links / respondents */}
         <footer className="max-w-4xl mx-auto px-4 sm:px-6 mt-12 text-center text-xs text-slate-400 print:hidden">
-          <button
-            onClick={() => setViewMode('admin')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/70 hover:bg-slate-300/80 text-slate-600 font-semibold text-[11px] transition-colors cursor-pointer"
-          >
-            <Lock className="w-3 h-3" />
-            <span>Panel Organizatora (Krzysztof Wieczorek)</span>
-          </button>
+          {isRespondentMode || urlToken ? (
+            <p className="text-[11px] text-slate-400 font-medium">
+              Ewaluacja 360° • Kubara Sp. z o.o. • Wszelkie odpowiedzi są w 100% anonimowe i poufne
+            </p>
+          ) : (
+            <div>
+              {isAdminAuthenticated ? (
+                <button
+                  onClick={() => setViewMode('admin')}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Wróć do Panelu Organizatora</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setViewMode('admin')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/60 hover:bg-slate-300/80 text-slate-500 hover:text-slate-700 font-semibold text-[11px] transition-colors cursor-pointer"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>Panel Organizatora (wymaga hasła)</span>
+                </button>
+              )}
+            </div>
+          )}
         </footer>
       </div>
     );
   }
 
   // ==========================================
-  // VIEW 2: DLA ORGANIZATORA (Panel Zarządzania & Raporty)
+  // VIEW 2: LOGOWANIE DO PANELU ORGANIZATORA
+  // ==========================================
+  if (!isAdminAuthenticated) {
+    return (
+      <AdminLoginView
+        onSuccess={() => {
+          setIsAdminAuthenticated(true);
+          sessionStorage.setItem('kw_organizer_authed', 'true');
+          sessionStorage.removeItem('is_respondent_link');
+          setIsRespondentMode(false);
+        }}
+        onCancel={() => {
+          setViewMode('survey');
+        }}
+      />
+    );
+  }
+
+  // ==========================================
+  // VIEW 3: DLA ORGANIZATORA (Panel Zarządzania & Raporty)
   // ==========================================
   return (
     <div className="min-h-screen bg-slate-100/90 text-slate-900 pb-16 font-sans antialiased selection:bg-slate-200">
@@ -180,6 +299,15 @@ export function App() {
                   <span className="hidden sm:inline">Wyczyść odpowiedzi ({responses.length})</span>
                 </button>
               )}
+
+              <button
+                onClick={handleAdminLogout}
+                title="Wyloguj z Panelu Organizatora"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <LogOut className="w-3.5 h-3.5 text-slate-600" />
+                <span className="hidden sm:inline">Wyloguj</span>
+              </button>
             </div>
           </div>
 

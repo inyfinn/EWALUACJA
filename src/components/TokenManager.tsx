@@ -28,8 +28,8 @@ import {
   setSurveyUrlMode,
   setSurveyCustomBaseUrl, 
   SurveyBaseUrlInfo, 
-  addCustomToken, 
-  deleteToken 
+  addCustomTokenAsync, 
+  deleteTokenAsync 
 } from '../utils/surveyStorage';
 
 interface TokenManagerProps {
@@ -91,22 +91,22 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
     setTimeout(() => setUrlSaveSuccess(false), 2500);
   };
 
-  const handleAddSingle = (e: React.FormEvent) => {
+  const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    addCustomToken(newLabel.trim() || undefined);
+    await addCustomTokenAsync(newLabel.trim() || `Współpracownik ${tokens.length + 1}`);
     setNewLabel('');
     onTokensUpdated();
   };
 
-  const handleBatch = (count: number) => {
+  const handleBatch = async (count: number) => {
     for (let i = 0; i < count; i++) {
-      addCustomToken(`Współpracownik ${tokens.length + i + 1}`);
+      await addCustomTokenAsync(`Współpracownik ${tokens.length + i + 1}`);
     }
     onTokensUpdated();
   };
 
-  const handleDelete = (id: string) => {
-    deleteToken(id);
+  const handleDelete = async (id: string) => {
+    await deleteTokenAsync(id);
     onTokensUpdated();
   };
 

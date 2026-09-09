@@ -1,0 +1,53 @@
+{
+  "tokens": [
+    {
+      "id": "token_1_kubara",
+      "code": "KUB-1RNHC",
+      "label": "Współpracownik 1 (Dział Produkcji / Technologii)",
+      "used": false
+    },
+    {
+      "id": "token_2_kubara",
+      "code": "KUB-2AB4K",
+      "label": "Współpracownik 2 (Dział Handlowy / B2B)",
+      "used": false
+    },
+    {
+      "id": "token_3_kubara",
+      "code": "KUB-3M79X",
+      "label": "Współpracownik 3 (Logistyka / Magazyn)",
+      "used": false
+    },
+    {
+      "id": "token_4_kubara",
+      "code": "KUB-4PT2W",
+      "label": "Współpracownik 4 (Dział Jakości i Certyfikacji)",
+      "used": false
+    },
+    {
+      "id": "token_5_kubara",
+      "code": "KUB-5H83Q",
+      "label": "Współpracownik 5 (Finanse / Administracja)",
+      "used": false
+    },
+    {
+      "id": "token_6_kubara",
+      "code": "KUB-6R91E",
+      "label": "Współpracownik 6 (Projekt międzywydziałowy)",
+      "used": false
+    },
+    {
+      "id": "token_7_kubara",
+      "code": "KUB-7Y45Z",
+      "label": "Współpracownik 7 (Współpracownik kluczowy)",
+      "used": false
+    },
+    {
+      "id": "token_8_kubara",
+      "code": "KUB-8N23L",
+      "label": "Współpracownik 8 (Dział Obsługi Klienta)",
+      "used": false
+    }
+  ],
+  "responses": []
+}

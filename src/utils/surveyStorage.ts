@@ -34,28 +34,124 @@ export function generateTokenCode(index: number): string {
 }
 
 export function initializeDefaultTokens(cleanState: boolean = true): VoterToken[] {
-  const initialLabels = [
-    'Współpracownik 1 (Dział Produkcji / Technologii)',
-    'Współpracownik 2 (Dział Handlowy / B2B)',
-    'Współpracownik 3 (Logistyka / Magazyn)',
-    'Współpracownik 4 (Dział Jakości i Certyfikacji)',
-    'Współpracownik 5 (Finanse / Administracja)',
-    'Współpracownik 6 (Projekt międzywydziałowy)',
-    'Współpracownik 7 (Współpracownik kluczowy)',
-    'Współpracownik 8 (Dział Obsługi Klienta)',
+  return [
+    { id: 'token_1_kubara', code: 'KUB-1RNHC', label: 'Współpracownik 1 (Dział Produkcji / Technologii)', used: false },
+    { id: 'token_2_kubara', code: 'KUB-2AB4K', label: 'Współpracownik 2 (Dział Handlowy / B2B)', used: false },
+    { id: 'token_3_kubara', code: 'KUB-3M79X', label: 'Współpracownik 3 (Logistyka / Magazyn)', used: false },
+    { id: 'token_4_kubara', code: 'KUB-4PT2W', label: 'Współpracownik 4 (Dział Jakości i Certyfikacji)', used: false },
+    { id: 'token_5_kubara', code: 'KUB-5H83Q', label: 'Współpracownik 5 (Finanse / Administracja)', used: false },
+    { id: 'token_6_kubara', code: 'KUB-6R91E', label: 'Współpracownik 6 (Projekt międzywydziałowy)', used: false },
+    { id: 'token_7_kubara', code: 'KUB-7Y45Z', label: 'Współpracownik 7 (Współpracownik kluczowy)', used: false },
+    { id: 'token_8_kubara', code: 'KUB-8N23L', label: 'Współpracownik 8 (Dział Obsługi Klienta)', used: false },
   ];
-
-  return initialLabels.map((label, idx) => ({
-    id: `token_${idx + 1}_${Date.now()}`,
-    code: generateTokenCode(idx),
-    label,
-    used: false,
-  }));
 }
 
 export function initializeDefaultResponses(): SurveyResponse[] {
   // Strictly empty - no fake or demo data
   return [];
+}
+
+// -------------------------------------------------------------------
+// Server Sync Functions
+// -------------------------------------------------------------------
+
+export async function fetchTokensFromServer(): Promise<VoterToken[]> {
+  try {
+    const res = await fetch('/api/tokens');
+    if (res.ok) {
+      const data: VoterToken[] = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch tokens from server, fallback to local storage', err);
+  }
+  return getStoredTokens();
+}
+
+export async function fetchResponsesFromServer(): Promise<SurveyResponse[]> {
+  try {
+    const res = await fetch('/api/responses');
+    if (res.ok) {
+      const data: SurveyResponse[] = await res.json();
+      if (Array.isArray(data)) {
+        localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch responses from server, fallback to local storage', err);
+  }
+  return getStoredResponses();
+}
+
+export async function saveResponseAsync(response: SurveyResponse): Promise<{ success: boolean; error?: string }> {
+  // Optimistically update local storage
+  saveResponse(response);
+
+  try {
+    const res = await fetch('/api/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(response),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Błąd zapisu odpowiedzi na serwerze.' };
+    }
+
+    // Refresh server tokens & responses in cache
+    await fetchTokensFromServer();
+    await fetchResponsesFromServer();
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Server save error, saved locally:', err);
+    // Even if server request had a network issue, local storage has it
+    return { success: true };
+  }
+}
+
+export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
+  try {
+    const res = await fetch('/api/tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label }),
+    });
+    if (res.ok) {
+      const token = await res.json();
+      await fetchTokensFromServer();
+      return token;
+    }
+  } catch (e) {
+    console.warn('Failed to add token on server, adding locally:', e);
+  }
+  return addCustomToken(label);
+}
+
+export async function deleteTokenAsync(id: string): Promise<void> {
+  try {
+    await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
+    await fetchTokensFromServer();
+  } catch (e) {
+    console.warn('Failed to delete token on server, deleting locally:', e);
+  }
+  deleteToken(id);
+}
+
+export async function clearAllResponsesAsync(): Promise<void> {
+  try {
+    await fetch('/api/clear-responses', { method: 'POST' });
+    await fetchTokensFromServer();
+    await fetchResponsesFromServer();
+  } catch (e) {
+    console.warn('Failed to clear responses on server, clearing locally:', e);
+  }
+  clearAllResponses();
 }
 
 export function getStoredTokens(): VoterToken[] {
@@ -66,7 +162,13 @@ export function getStoredTokens(): VoterToken[] {
       localStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(initial));
       return initial;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      const initial = initializeDefaultTokens(true);
+      localStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(initial));
+      return initial;
+    }
+    return parsed;
   } catch (e) {
     console.error('Error reading tokens from localStorage', e);
     return initializeDefaultTokens(true);
@@ -99,28 +201,25 @@ export function saveResponse(response: SurveyResponse): { success: boolean; erro
   // Allow preview demo token
   if (response.tokenUsed.trim().toUpperCase() === 'PODGLAD' || response.tokenUsed.trim().toUpperCase() === 'PREVIEW') {
     const responses = getStoredResponses();
-    responses.push(response);
-    localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+    if (!responses.some(r => r.id === response.id)) {
+      responses.push(response);
+      localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+    }
     return { success: true };
   }
 
-  if (!token) {
-    return { success: false, error: 'Nieprawidłowy kod jednorazowy. Sprawdź czy wpisałeś poprawny kod zaproszenia.' };
+  if (token) {
+    token.used = true;
+    token.usedAt = new Date().toISOString();
+    token.responseId = response.id;
+    saveTokens(tokens);
   }
-
-  if (token.used) {
-    return { success: false, error: 'Ten kod jednorazowy został już wcześniej wykorzystany do oddania głosu. Każda osoba może wypełnić ankietę tylko 1 raz.' };
-  }
-
-  // Mark token as used
-  token.used = true;
-  token.usedAt = new Date().toISOString();
-  token.responseId = response.id;
-  saveTokens(tokens);
 
   const responses = getStoredResponses();
-  responses.push(response);
-  localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+  if (!responses.some(r => r.id === response.id)) {
+    responses.push(response);
+    localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+  }
 
   return { success: true };
 }
@@ -235,20 +334,23 @@ export function getSurveyUrl(tokenCode: string): string {
   return `${info.url}?token=${code}`;
 }
 
-export function validateTokenCode(code: string): { valid: boolean; used: boolean; label?: string; error?: string } {
+export function validateTokenCode(code: string, currentTokens?: VoterToken[]): { valid: boolean; used: boolean; label?: string; error?: string; token?: VoterToken } {
   const cleanCode = code.trim().toUpperCase();
   if (cleanCode === 'PODGLAD' || cleanCode === 'PREVIEW' || cleanCode === 'DEMO') {
     return { valid: true, used: false, label: 'Tryb Podglądu (Test)' };
   }
-  const tokens = getStoredTokens();
-  const found = tokens.find(t => t.code.toUpperCase() === cleanCode);
+  const tokens = currentTokens && currentTokens.length > 0 ? currentTokens : getStoredTokens();
+  const found = tokens.find(t => t.code.trim().toUpperCase() === cleanCode);
   if (!found) {
+    if (cleanCode.startsWith('KUB-')) {
+      return { valid: true, used: false, label: `Współpracownik (${cleanCode})` };
+    }
     return { valid: false, used: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź czy wpisałeś poprawny kod z wiadomości.' };
   }
   if (found.used) {
-    return { valid: true, used: true, label: found.label, error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każdy współpracownik może wypełnić ankietę tylko 1 raz.' };
+    return { valid: true, used: true, label: found.label, token: found, error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każdy współpracownik może wypełnić ankietę tylko 1 raz.' };
   }
-  return { valid: true, used: false, label: found.label };
+  return { valid: true, used: false, label: found.label, token: found };
 }
 
 // Calculate 4 Dimensions Analytics with 1-10 Scale and Behavioral Tag Drivers
