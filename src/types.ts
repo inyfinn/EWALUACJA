@@ -47,6 +47,7 @@ export interface SurveyResponse {
   dimensionComments: Record<string, string>; // questionId -> custom comment
   collaborationContext: string;
   teamRelation: string;
+  excludedFromReport?: boolean; // When true, excluded from report (e.g. test)
 }
 
 export interface VoterToken {

@@ -133,6 +133,69 @@ export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
   return addCustomToken(label);
 }
 
+export async function deleteSingleResponseAsync(responseId: string): Promise<void> {
+  try {
+    await fetch(`/api/responses/${responseId}`, { method: 'DELETE' });
+    await fetchTokensFromServer();
+    await fetchResponsesFromServer();
+  } catch (e) {
+    console.warn('Failed to delete response on server, deleting locally:', e);
+  }
+  // Local cleanup
+  const responses = getStoredResponses().filter(r => r.id !== responseId);
+  localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+  const tokens = getStoredTokens().map(t => {
+    if (t.responseId === responseId) {
+      return { ...t, used: false, usedAt: undefined, responseId: undefined };
+    }
+    return t;
+  });
+  saveTokens(tokens);
+}
+
+export async function toggleExcludeResponseAsync(responseId: string, excluded?: boolean): Promise<void> {
+  try {
+    await fetch(`/api/responses/${responseId}/exclude`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ excluded }),
+    });
+    await fetchResponsesFromServer();
+  } catch (e) {
+    console.warn('Failed to toggle exclude response on server, updating locally:', e);
+  }
+  // Local update
+  const responses = getStoredResponses().map(r => {
+    if (r.id === responseId) {
+      const nextExcluded = excluded !== undefined ? excluded : !r.excludedFromReport;
+      return { ...r, excludedFromReport: nextExcluded };
+    }
+    return r;
+  });
+  localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+}
+
+export async function resetTokenAsync(tokenId: string): Promise<void> {
+  try {
+    await fetch(`/api/tokens/${tokenId}/reset`, { method: 'POST' });
+    await fetchTokensFromServer();
+    await fetchResponsesFromServer();
+  } catch (e) {
+    console.warn('Failed to reset token on server, resetting locally:', e);
+  }
+  // Local update
+  const tokens = getStoredTokens();
+  const token = tokens.find(t => t.id === tokenId);
+  if (token) {
+    const responses = getStoredResponses().filter(r => r.id !== token.responseId && r.tokenUsed.toUpperCase() !== token.code.toUpperCase());
+    localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(responses));
+    token.used = false;
+    delete token.usedAt;
+    delete token.responseId;
+    saveTokens(tokens);
+  }
+}
+
 export async function deleteTokenAsync(id: string): Promise<void> {
   try {
     await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
@@ -394,7 +457,9 @@ export function computeDimensionsAnalytics(
     };
   });
 
-  if (responses.length === 0) {
+  const activeResponses = responses.filter(r => !r.excludedFromReport);
+
+  if (activeResponses.length === 0) {
     return {
       overallAverage: 0,
       overallAverage5: 0,
@@ -425,19 +490,55 @@ export function computeDimensionsAnalytics(
   let totalScoreCount = 0;
 
   // Process responses
-  responses.forEach(resp => {
-    questions.forEach(q => {
-      // Calculate respondent's average for this dimension based on the 3 sub-questions
-      const subScores = q.subQuestions.map(sq => resp.answers[sq.id]).filter(s => s !== undefined);
-      let score = undefined;
+  activeResponses.forEach(resp => {
+    questions.forEach((q, qIdx) => {
+      // Extract respondent's sub-question scores for this dimension
+      const subScores: number[] = [];
+      q.subQuestions.forEach((sq, sqIdx) => {
+        if (resp.answers && typeof resp.answers[sq.id] === 'number') {
+          subScores.push(resp.answers[sq.id]);
+          return;
+        }
+        if (!resp.answers) return;
+
+        // Check fallback aliases (e.g. q1_a, q1_1, etc.)
+        const dimIdx = qIdx + 1;
+        const letter = String.fromCharCode(97 + sqIdx); // 'a', 'b', 'c'
+        const shortId = sq.id.replace(/^[a-z]+_\d+_/, '');
+        const fallbacks = [
+          `q${dimIdx}_${letter}`,
+          `q${dimIdx}_${sqIdx + 1}`,
+          `${q.dimension}_${sqIdx + 1}`,
+          `${q.dimension}_${shortId}`,
+          shortId,
+        ];
+        for (const fb of fallbacks) {
+          if (typeof resp.answers[fb] === 'number') {
+            subScores.push(resp.answers[fb]);
+            return;
+          }
+        }
+      });
+
+      // Fallback: check any answers key matching this question/dimension
+      if (subScores.length === 0 && resp.answers) {
+        const dimIdx = qIdx + 1;
+        Object.entries(resp.answers).forEach(([k, v]) => {
+          if (typeof v === 'number') {
+            if (k.startsWith(q.id) || k.startsWith(q.dimension.slice(0, 3)) || k.startsWith(`q${dimIdx}_`)) {
+              subScores.push(v);
+            }
+          }
+        });
+      }
       
       if (subScores.length > 0) {
         const avgScoreRaw = subScores.reduce((acc, val) => acc + val, 0) / subScores.length;
-        score = Math.round(avgScoreRaw); // Round to nearest int for distribution (1-10)
+        const score = Math.min(11, Math.max(1, Math.round(avgScoreRaw))); // Round to nearest int for distribution (1-11)
 
         initialStats[q.dimension].distribution[score] = (initialStats[q.dimension].distribution[score] || 0) + 1;
         initialStats[q.dimension].totalVotes += 1;
-        totalScoreSum += score;
+        totalScoreSum += avgScoreRaw;
         totalScoreCount += 1;
       }
 
@@ -474,7 +575,7 @@ export function computeDimensionsAnalytics(
       .map(([text, count]) => ({
         text,
         count,
-        percentage: Math.round((count / responses.length) * 100),
+        percentage: Math.round((count / activeResponses.length) * 100),
       }))
       .sort((a, b) => b.count - a.count);
 
@@ -505,7 +606,7 @@ export function computeDimensionsAnalytics(
     .map(([text, count]) => ({
       text,
       count,
-      percentage: Math.round((count / responses.length) * 100),
+      percentage: Math.round((count / activeResponses.length) * 100),
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 4);
@@ -515,7 +616,7 @@ export function computeDimensionsAnalytics(
     .map(([text, count]) => ({
       text,
       count,
-      percentage: Math.round((count / responses.length) * 100),
+      percentage: Math.round((count / activeResponses.length) * 100),
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
@@ -529,7 +630,7 @@ export function computeDimensionsAnalytics(
         initialStats.wklad_wlasny.average * 3.0 +
         initialStats.terminowosc.average * 2.0 +
         initialStats.komunikacja.average * 2.0) *
-        (responses.length >= 3 ? 1 : 0.7)
+        (activeResponses.length >= 3 ? 1 : 0.7)
     )
   );
 
@@ -537,7 +638,7 @@ export function computeDimensionsAnalytics(
   if (overallAvg >= 8.0) {
     keyTalkingPoints.push(`🏆 Wynik ogólny ${overallAvg}/10.0 (${overallAvg5}/5.0) potwierdza wysokie zadowolenie zespołu ze współpracy z Krzysztofem.`);
     keyTalkingPoints.push(`⭐ Najwyżej oceniony filar: ${titles[getHighestDim(initialStats)]} (${initialStats[getHighestDim(initialStats)].average}/10.0).`);
-    keyTalkingPoints.push(`📈 Spójny feedback od ${responses.length} współpracowników stanowi mocny, obiektywny materiał do rozmowy o dalszej ścieżce kariery.`);
+    keyTalkingPoints.push(`📈 Spójny feedback od ${activeResponses.length} współpracowników stanowi mocny, obiektywny materiał do rozmowy o dalszej ścieżce kariery.`);
     if (topImprovementGlobal.length > 0) {
       keyTalkingPoints.push(`💡 Dojrzałość rozwojowa: zidentyfikowano konkretne wskazówki do oszlifowania w drugim roku.`);
     }
@@ -587,9 +688,9 @@ export function computeDimensionsAnalytics(
   return {
     overallAverage: overallAvg,
     overallAverage5: overallAvg5,
-    totalResponses: responses.length,
+    totalResponses: activeResponses.length,
     dimensions: initialStats,
-    readyForManagerMeeting: responses.length >= 3,
+    readyForManagerMeeting: activeResponses.length >= 3,
     salaryReadinessScore: salaryReadiness,
     topGlobalDrivers,
     topImprovementGlobal,

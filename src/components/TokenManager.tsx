@@ -19,9 +19,11 @@ import {
   HelpCircle,
   Sparkles,
   Link as LinkIcon,
-  PlayCircle
+  PlayCircle,
+  RotateCcw,
+  EyeOff
 } from 'lucide-react';
-import { VoterToken } from '../types';
+import { VoterToken, SurveyResponse } from '../types';
 import { 
   getSurveyUrl, 
   getSurveyBaseUrlInfo, 
@@ -29,11 +31,14 @@ import {
   setSurveyCustomBaseUrl, 
   SurveyBaseUrlInfo, 
   addCustomTokenAsync, 
-  deleteTokenAsync 
+  deleteTokenAsync,
+  toggleExcludeResponseAsync,
+  resetTokenAsync
 } from '../utils/surveyStorage';
 
 interface TokenManagerProps {
   tokens: VoterToken[];
+  responses?: SurveyResponse[];
   onTokensUpdated: () => void;
   onSelectTokenToFill?: (code: string) => void;
   onGenerateToken?: (label?: string) => void;
@@ -43,6 +48,7 @@ interface TokenManagerProps {
 
 export const TokenManager: React.FC<TokenManagerProps> = ({
   tokens,
+  responses,
   onTokensUpdated,
   onSelectTokenToFill,
 }) => {
@@ -106,8 +112,26 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    await deleteTokenAsync(id);
+    const token = tokens.find(t => t.id === id);
+    const msg = token?.used
+      ? `Ten link (${token.label || token.code}) został już wypełniony. Usunięcie go usunie również zapisany wynik ankiety z raportu. Czy na pewno usunąć?`
+      : 'Czy na pewno chcesz usunąć ten link?';
+    if (window.confirm(msg)) {
+      await deleteTokenAsync(id);
+      onTokensUpdated();
+    }
+  };
+
+  const handleToggleExclude = async (responseId: string, currentExcluded: boolean) => {
+    await toggleExcludeResponseAsync(responseId, !currentExcluded);
     onTokensUpdated();
+  };
+
+  const handleResetToken = async (tokenId: string) => {
+    if (window.confirm('Czy na pewno chcesz usunąć wynik ankiety i odblokować ten link do ponownego wypełnienia?')) {
+      await resetTokenAsync(tokenId);
+      onTokensUpdated();
+    }
   };
 
   const copyToClipboard = (text: string, identifier: string) => {
@@ -284,9 +308,9 @@ Dziękuję za Twój czas i pomoc!`;
                 <strong>Nie wymaga konta ani logowania Google.</strong>
               </p>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-amber-800 font-medium flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Wymaga kliknięcia przycisku „Share” w AI Studio (inaczej Google wyświetla 404).</span>
+            <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Dostępny publicznie dla każdego bez konieczności logowania.</span>
             </div>
           </button>
 
@@ -305,7 +329,7 @@ Dziękuję za Twój czas i pomoc!`;
                 <div className="flex items-center gap-2">
                   <Sparkles className={`w-4 h-4 ${baseUrlInfo.mode === 'dev' ? 'text-indigo-600' : 'text-slate-500'}`} />
                   <span className="font-bold text-slate-900 text-sm">
-                    Link Deweloperski (Twój bieżący podgląd)
+                    Link Deweloperski (Bieżący podgląd)
                   </span>
                 </div>
                 {baseUrlInfo.mode === 'dev' && (
@@ -315,37 +339,14 @@ Dziękuję za Twój czas i pomoc!`;
                 )}
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Używa bieżącego adresu roboczego <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-slate-700">ais-dev-...</code>.
-                Działa natychmiast u Ciebie w przeglądarce.
+                Używa adresu roboczego <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-slate-700">ais-dev-...</code>.
+                Działa w Twoim bieżącym podglądzie.
               </p>
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-slate-500 flex items-center gap-1.5">
-              <span>Uwaga: Osoby z zewnątrz Google przekieruje do logowania.</span>
+              <span>Wewnętrzny link do testów</span>
             </div>
           </button>
-        </div>
-
-        {/* Prominent 404 Explanation & Resolution Box */}
-        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-250 text-xs space-y-2.5">
-          <div className="flex items-start gap-2.5">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-1.5 flex-1">
-              <p className="font-extrabold text-amber-950 text-sm">
-                Dlaczego w nowej karcie pojawił się komunikat „Error: Page not found / 404”?
-              </p>
-              <p className="text-amber-900 leading-relaxed">
-                Adres publiczny (<code className="font-mono bg-white px-1 py-0.5 rounded border border-amber-300 text-amber-950 font-bold">ais-pre-...</code>) jest tworzony przez chmurę Google <strong>dopiero wtedy, gdy klikniesz przycisk „Share” (Udostępnij) w prawym górnym rogu platformy Google AI Studio</strong>. Dopóki nie klikniesz „Share”, Google wyświetla błąd 404.
-              </p>
-              <div className="bg-white/90 p-3.5 rounded-xl border border-amber-200 space-y-1.5 text-slate-700">
-                <p className="font-bold text-slate-900">Jak to natychmiast uruchomić w 2 prostych krokach:</p>
-                <ol className="list-decimal list-inside space-y-1 text-slate-700 leading-relaxed">
-                  <li>Spójrz w <strong>prawy górny róg okna Google AI Studio</strong> (obok ikony ustawień i podglądu) i kliknij przycisk <strong>„Share” (Udostępnij)</strong>.</li>
-                  <li>Wybierz <strong>„Share” / „Publish”</strong>.</li>
-                  <li>Odśwież stronę, na której był błąd 404 – <strong>ankieta natychmiast się uruchomi i żaden współpracownik nie będzie musiał się logować do konta Google!</strong></li>
-                </ol>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Collapsible URL Settings Panel */}
@@ -461,12 +462,16 @@ Dziękuję za Twój czas i pomoc!`;
           <div className="divide-y divide-slate-100">
             {tokens.map((token, idx) => {
               const directLink = getSurveyUrl(token.code);
+              const linkedResponse = responses?.find(
+                r => r.id === token.responseId || r.tokenUsed.trim().toUpperCase() === token.code.trim().toUpperCase()
+              );
+              const isExcluded = Boolean(linkedResponse?.excludedFromReport);
 
               return (
                 <div
                   key={token.id}
                   className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
-                    token.used ? 'bg-emerald-50/20' : 'hover:bg-slate-50/70'
+                    token.used ? (isExcluded ? 'bg-amber-50/30' : 'bg-emerald-50/20') : 'hover:bg-slate-50/70'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -480,10 +485,22 @@ Dziękuję za Twój czas i pomoc!`;
                           kod: {token.code}
                         </span>
                         {token.used ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            Wypełniona ({token.usedAt ? new Date(token.usedAt).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : 'Tak'})
-                          </span>
+                          <>
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Wypełniona ({token.usedAt ? new Date(token.usedAt).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : 'Tak'})
+                            </span>
+                            {isExcluded ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                                <EyeOff className="w-3 h-3 text-amber-700" />
+                                Wykluczona z raportu (Test)
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                ✓ Wliczana do raportu
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
                             <Clock className="w-3 h-3 text-amber-600" />
@@ -498,6 +515,36 @@ Dziękuję za Twój czas i pomoc!`;
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {/* Exclude / Include toggle for used survey */}
+                    {token.used && linkedResponse && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleExclude(linkedResponse.id, isExcluded)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          isExcluded
+                            ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}
+                        title={isExcluded ? "Przywróć tę ankietę do wyliczeń raportu" : "Oznacz tę ankietę jako test i wyklucz z wyników raportu"}
+                      >
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>{isExcluded ? 'Przywróć do raportu' : 'Nie uwzględniaj (Test)'}</span>
+                      </button>
+                    )}
+
+                    {/* Reset used token to empty and remove response */}
+                    {token.used && (
+                      <button
+                        type="button"
+                        onClick={() => handleResetToken(token.id)}
+                        className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
+                        title="Usuń zapisany wynik tej ankiety i odblokuj link do ponownego wypełnienia"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Usuń wynik / Resetuj</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => copyInvitationTemplate(token)}
@@ -548,16 +595,14 @@ Dziękuję za Twój czas i pomoc!`;
                       </button>
                     )}
 
-                    {!token.used && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(token.id)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                        title="Usuń link"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(token.id)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Usuń link"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );

@@ -47,7 +47,57 @@
       "code": "KUB-8N23L",
       "label": "Współpracownik 8 (Dział Obsługi Klienta)",
       "used": false
+    },
+    {
+      "id": "token_1788960297242_g9v8y",
+      "code": "KUB-94FZC",
+      "label": "TEST",
+      "used": false
+    },
+    {
+      "id": "token_1788960335112_z8mdd",
+      "code": "KUB-10AFSS",
+      "label": "TEST2",
+      "used": true,
+      "usedAt": "2026-09-09T13:32:50.284Z",
+      "responseId": "resp-test-1"
     }
   ],
-  "responses": []
+  "responses": [
+    {
+      "id": "resp-test-1",
+      "createdAt": "2026-09-09T13:35:00.000Z",
+      "tokenUsed": "KUB-10AFSS",
+      "answers": {
+        "kom_1_task": 10,
+        "kom_1_perception": 9,
+        "kom_1_relation": 10,
+        "term_1_task": 9,
+        "term_1_perception": 10,
+        "term_1_relation": 8,
+        "jak_1_task": 9,
+        "jak_1_perception": 9,
+        "jak_1_relation": 10,
+        "wklad_1_task": 10,
+        "wklad_1_perception": 9,
+        "wklad_1_relation": 10,
+        "q1_a": 10,
+        "q1_b": 9,
+        "q1_c": 10,
+        "q2_a": 9,
+        "q2_b": 10,
+        "q2_c": 8,
+        "q3_a": 9,
+        "q3_b": 9,
+        "q3_c": 10,
+        "q4_a": 10,
+        "q4_b": 9,
+        "q4_c": 10
+      },
+      "selectedFactors": {},
+      "dimensionComments": {},
+      "collaborationContext": "czesto",
+      "teamRelation": "ten_sam_zespol"
+    }
+  ]
 }

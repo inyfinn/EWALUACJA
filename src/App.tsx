@@ -91,19 +91,23 @@ export function App() {
       const adminParam = params.get('admin') || params.get('panel');
 
       if (tokenParam) {
-        // STRICT: Arrived via invitation link with token
+        // Arrived via invitation link with token
         setUrlToken(tokenParam.trim().toUpperCase());
         setIsRespondentMode(true);
         setViewMode('survey');
-        sessionStorage.setItem('is_respondent_link', 'true');
-      } else if (sessionStorage.getItem('is_respondent_link') === 'true' && sessionStorage.getItem('kw_organizer_authed') !== 'true') {
-        // Marked as respondent in this session and not logged in as admin
-        setIsRespondentMode(true);
-        setViewMode('survey');
-      } else if (adminParam === 'true' || adminParam === '1') {
+      } else if (adminParam === 'true' || adminParam === '1' || sessionStorage.getItem('kw_organizer_authed') === 'true') {
+        setIsRespondentMode(false);
         setViewMode('admin');
-      } else {
         setUrlToken('');
+      } else {
+        setIsRespondentMode(false);
+        setUrlToken('');
+        // When visiting root without token:
+        if (sessionStorage.getItem('kw_organizer_authed') === 'true') {
+          setViewMode('admin');
+        } else {
+          setViewMode('survey');
+        }
       }
     }
 
@@ -176,9 +180,21 @@ export function App() {
               </div>
             </div>
             
-            <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Formularz anonimowy</span>
+            <div className="flex items-center gap-3">
+              <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Formularz anonimowy</span>
+              </div>
+
+              {!urlToken && (
+                <button
+                  onClick={() => setViewMode('admin')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer shadow-2xs"
+                >
+                  <Lock className="w-3 h-3 text-amber-400" />
+                  <span>Panel Organizatora</span>
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -189,39 +205,42 @@ export function App() {
             questions={DEFAULT_QUESTIONS}
             prefilledToken={urlToken}
             isPreviewMode={!urlToken}
+            onOpenAdminLogin={() => {
+              setViewMode('admin');
+            }}
+            onSwitchToAdmin={() => {
+              setViewMode('admin');
+            }}
             onCompleted={() => {
               refreshData();
             }}
           />
         </main>
 
-        {/* Footer: Strictly NO admin button for invitation links / respondents */}
-        <footer className="max-w-4xl mx-auto px-4 sm:px-6 mt-12 text-center text-xs text-slate-400 print:hidden">
-          {isRespondentMode || urlToken ? (
-            <p className="text-[11px] text-slate-400 font-medium">
-              Ewaluacja 360° • Kubara Sp. z o.o. • Wszelkie odpowiedzi są w 100% anonimowe i poufne
-            </p>
-          ) : (
-            <div>
-              {isAdminAuthenticated ? (
-                <button
-                  onClick={() => setViewMode('admin')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Wróć do Panelu Organizatora</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => setViewMode('admin')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/60 hover:bg-slate-300/80 text-slate-500 hover:text-slate-700 font-semibold text-[11px] transition-colors cursor-pointer"
-                >
-                  <Lock className="w-3 h-3" />
-                  <span>Panel Organizatora (wymaga hasła)</span>
-                </button>
-              )}
-            </div>
-          )}
+        {/* Footer: Discrete organizer access protected by password */}
+        <footer className="max-w-4xl mx-auto px-4 sm:px-6 mt-12 text-center text-xs text-slate-400 print:hidden space-y-2.5">
+          <p className="text-[11px] text-slate-400 font-medium">
+            Ewaluacja 360° • Kubara Sp. z o.o. • Wszelkie odpowiedzi są w 100% anonimowe i poufne
+          </p>
+          <div className="pt-1">
+            {isAdminAuthenticated ? (
+              <button
+                onClick={() => setViewMode('admin')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Przejdź do Panelu Organizatora</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setViewMode('admin')}
+                className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <Lock className="w-3 h-3 text-slate-400" />
+                <span>Panel Organizatora (Krzysztof Wieczorek – wymaga hasła)</span>
+              </button>
+            )}
+          </div>
         </footer>
       </div>
     );
@@ -345,6 +364,7 @@ export function App() {
         {adminTab === 'tokens' && (
           <TokenManager
             tokens={tokens}
+            responses={responses}
             onTokensUpdated={refreshData}
             onSelectTokenToFill={handleTestTokenFromAdmin}
           />
@@ -355,6 +375,8 @@ export function App() {
             stats={stats}
             questions={DEFAULT_QUESTIONS}
             responses={responses}
+            tokens={tokens}
+            onRefreshData={refreshData}
           />
         )}
       </main>

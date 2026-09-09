@@ -28,6 +28,7 @@ interface SurveyResponse {
   dimensionComments?: Record<string, string>;
   collaborationContext?: string;
   teamRelation?: string;
+  excludedFromReport?: boolean;
 }
 
 interface StoreData {
@@ -125,14 +126,78 @@ app.post('/api/tokens', (req, res) => {
 app.delete('/api/tokens/:id', (req, res) => {
   const { id } = req.params;
   const store = readStore();
+  const token = store.tokens.find(t => t.id === id);
+  if (token) {
+    // Also remove associated response if any
+    store.responses = store.responses.filter(r => r.id !== token.responseId && r.tokenUsed !== token.code);
+  }
   store.tokens = store.tokens.filter(t => t.id !== id);
   writeStore(store);
   res.json({ success: true });
 });
 
+app.post('/api/tokens/:id/reset', (req, res) => {
+  const { id } = req.params;
+  const store = readStore();
+  const token = store.tokens.find(t => t.id === id);
+  if (!token) {
+    return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
+  }
+
+  // Remove linked response if any
+  if (token.responseId) {
+    store.responses = store.responses.filter(r => r.id !== token.responseId);
+  } else {
+    store.responses = store.responses.filter(r => r.tokenUsed.toUpperCase() !== token.code.toUpperCase());
+  }
+
+  token.used = false;
+  delete token.usedAt;
+  delete token.responseId;
+
+  writeStore(store);
+  res.json({ success: true, token });
+});
+
 app.get('/api/responses', (req, res) => {
   const store = readStore();
   res.json(store.responses);
+});
+
+app.delete('/api/responses/:id', (req, res) => {
+  const { id } = req.params;
+  const store = readStore();
+  const resp = store.responses.find(r => r.id === id);
+  
+  // Remove response
+  store.responses = store.responses.filter(r => r.id !== id);
+  
+  // Reset any associated token
+  store.tokens.forEach(t => {
+    if (t.responseId === id || (resp && t.code.toUpperCase() === resp.tokenUsed.toUpperCase())) {
+      t.used = false;
+      delete t.usedAt;
+      delete t.responseId;
+    }
+  });
+
+  writeStore(store);
+  res.json({ success: true });
+});
+
+app.patch('/api/responses/:id/exclude', (req, res) => {
+  const { id } = req.params;
+  const { excluded } = req.body || {};
+  const store = readStore();
+  const resp = store.responses.find(r => r.id === id);
+  
+  if (!resp) {
+    return res.status(404).json({ success: false, error: 'Odpowiedź nie została znaleziona.' });
+  }
+
+  resp.excludedFromReport = excluded !== undefined ? Boolean(excluded) : !resp.excludedFromReport;
+  writeStore(store);
+  res.json({ success: true, response: resp });
 });
 
 app.post('/api/responses', (req, res) => {

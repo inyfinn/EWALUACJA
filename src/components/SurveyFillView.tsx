@@ -22,6 +22,7 @@ interface SurveyFillViewProps {
   prefilledToken?: string;
   onCompleted: () => void;
   onSwitchToAdmin?: () => void;
+  onOpenAdminLogin?: () => void;
   isPreviewMode?: boolean;
 }
 
@@ -169,6 +170,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   prefilledToken = '',
   onCompleted,
   onSwitchToAdmin,
+  onOpenAdminLogin,
   isPreviewMode = false,
 }) => {
   const [tokenInput, setTokenInput] = useState(prefilledToken);
@@ -270,10 +272,15 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       // ignore
     }
 
+    const urlQueryToken = typeof window !== 'undefined' 
+      ? (new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('kod') || '')
+      : '';
+    const actualTokenUsed = (tokenInput || prefilledToken || urlQueryToken || 'PREVIEW').trim().toUpperCase();
+
     const newResponse: SurveyResponse = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      tokenUsed: tokenInput || 'PREVIEW',
+      tokenUsed: actualTokenUsed,
       answers,
       selectedFactors,
       dimensionComments,
@@ -327,12 +334,18 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   }
 
   if (surveyStage === 'submitted') {
+    const urlQueryToken = typeof window !== 'undefined' 
+      ? (new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('kod') || '')
+      : '';
+    const resolvedToken = (tokenInput || prefilledToken || urlQueryToken || 'PREVIEW').trim().toUpperCase();
+
     return (
       <SurveyCompletionSummary
         answers={answers}
         selectedFactors={selectedFactors}
         priorResponses={priorResponsesSnapshot}
-        tokenUsed={tokenInput || 'PREVIEW'}
+        tokenUsed={resolvedToken}
+        onOpenAdminLogin={onOpenAdminLogin || onSwitchToAdmin}
       />
     );
   }

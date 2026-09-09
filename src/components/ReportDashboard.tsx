@@ -18,11 +18,15 @@ import {
   Star,
   Compass,
   Target,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2,
+  RotateCcw,
+  EyeOff
 } from 'lucide-react';
-import { DimensionStats, DimensionKey, SurveyResponse, SurveyQuestion, FactorCount } from '../types';
+import { DimensionStats, DimensionKey, SurveyResponse, SurveyQuestion, FactorCount, VoterToken } from '../types';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { toggleExcludeResponseAsync, deleteSingleResponseAsync } from '../utils/surveyStorage';
 
 interface ReportDashboardProps {
   stats: {
@@ -40,12 +44,16 @@ interface ReportDashboardProps {
   };
   questions: SurveyQuestion[];
   responses: SurveyResponse[];
+  tokens?: VoterToken[];
+  onRefreshData?: () => void;
 }
 
 export const ReportDashboard: React.FC<ReportDashboardProps> = ({
   stats,
   questions,
   responses,
+  tokens,
+  onRefreshData,
 }) => {
   const reportRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -276,17 +284,143 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
           </div>
         )}
 
-        {/* Empty state notification if 0 responses */}
+        {/* Registered Surveys & Response Management (Exclude/Delete) */}
+        {responses.length > 0 && (
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight">
+                    Nadesłane Ankiety i Zarządzanie Wynikami ({responses.length})
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Aktywne w raporcie: <strong className="text-slate-800 font-semibold">{stats.totalResponses}</strong> • Wykluczone z wyliczeń: <strong className="text-slate-800 font-semibold">{responses.length - stats.totalResponses}</strong>
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-150">
+                💡 Możesz wykluczyć ankietę testową ze statystyk lub usunąć ją całkowicie.
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {responses.map((resp, i) => {
+                const token = tokens?.find(t => t.responseId === resp.id || t.code.trim().toUpperCase() === resp.tokenUsed.trim().toUpperCase());
+                const isExcluded = Boolean(resp.excludedFromReport);
+
+                // Compute quick respondent average
+                const subScores: number[] = [];
+                questions.forEach((q, qIdx) => {
+                  q.subQuestions.forEach((sq, sqIdx) => {
+                    if (typeof resp.answers?.[sq.id] === 'number') {
+                      subScores.push(resp.answers[sq.id]);
+                      return;
+                    }
+                    const dimIdx = qIdx + 1;
+                    const letter = String.fromCharCode(97 + sqIdx);
+                    const fallbacks = [`q${dimIdx}_${letter}`, `q${dimIdx}_${sqIdx + 1}`, `${q.dimension}_${sqIdx + 1}`];
+                    for (const fb of fallbacks) {
+                      if (typeof resp.answers?.[fb] === 'number') {
+                        subScores.push(resp.answers[fb]);
+                        return;
+                      }
+                    }
+                  });
+                });
+                const respAvg = subScores.length > 0 ? (subScores.reduce((a, b) => a + b, 0) / subScores.length).toFixed(1) : '—';
+
+                return (
+                  <div key={resp.id} className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono font-bold text-slate-400 w-5">#{i + 1}</span>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 text-sm">
+                            {token?.label || `Współpracownik (${resp.tokenUsed})`}
+                          </span>
+                          <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
+                            kod: {resp.tokenUsed}
+                          </span>
+                          <span className="text-xs text-slate-400 font-medium">
+                            {new Date(resp.createdAt).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                          {isExcluded ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <EyeOff className="w-3 h-3 text-amber-700" />
+                              Wykluczona z raportu (Test)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              ✓ Wliczana do raportu
+                            </span>
+                          )}
+                          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                            Średnia: <strong>{respAvg}</strong>/10
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await toggleExcludeResponseAsync(resp.id, !isExcluded);
+                          onRefreshData?.();
+                        }}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          isExcluded
+                            ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}
+                        title={isExcluded ? "Przywróć tę ankietę do wyliczeń raportu" : "Oznacz tę ankietę jako test i wyklucz ze średnich"}
+                      >
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>{isExcluded ? 'Przywróć do raportu' : 'Nie uwzględniaj (np. Test)'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`Czy na pewno chcesz bezpowrotnie usunąć tę ankietę (${resp.tokenUsed}) z bazy danych? Odpowiedź zniknie, a kod zaproszenia zostanie odblokowany.`)) {
+                            await deleteSingleResponseAsync(resp.id);
+                            onRefreshData?.();
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
+                        title="Usuń tę ankietę z bazy"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Usuń wynik</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state notification if 0 active responses */}
         {stats.totalResponses === 0 && (
           <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-8 sm:p-10 text-center shadow-xs">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
               <Users className="w-6 h-6" />
             </div>
             <h3 className="text-base sm:text-lg font-bold text-slate-900">
-              Raport jest czysty i oczekuje na pierwsze głosy
+              {responses.length > 0 
+                ? 'Wszystkie przesłane odpowiedzi są obecnie wykluczone z raportu' 
+                : 'Raport jest czysty i oczekuje na pierwsze głosy'}
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-              Nikt jeszcze nie wypełnił ankiety. Wszystkie wskaźniki i oceny wynoszą 0.0. Żadne przykładowe ani fikcyjne dane nie są tutaj wyświetlane. Przejdź do zakładki <strong>„1. Kody i Linki do Rozesłania”</strong>, aby przekazać linki współpracownikom.
+              {responses.length > 0 ? (
+                <>W bazie znajduje się {responses.length} wypełnionych ankiet oznaczonych jako testowe. Kliknij przycisk <strong>„Przywróć do raportu”</strong> na liście powyżej, aby uwzględnić je w wyliczeniach.</>
+              ) : (
+                <>Nikt jeszcze nie wypełnił ankiety. Wszystkie wskaźniki i oceny wynoszą 0.0. Przejdź do zakładki <strong>„1. Kody i Linki do Rozesłania”</strong>, aby przekazać linki współpracownikom.</>
+              )}
             </p>
           </div>
         )}

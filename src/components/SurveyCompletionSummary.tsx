@@ -15,7 +15,8 @@ import {
   Award,
   AlertCircle,
   ExternalLink,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { SurveyResponse } from '../types';
@@ -27,6 +28,7 @@ interface SurveyCompletionSummaryProps {
   selectedFactors: Record<string, string[]>;
   priorResponses: SurveyResponse[];
   tokenUsed: string;
+  onOpenAdminLogin?: () => void;
 }
 
 interface ExportModalData {
@@ -43,6 +45,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
   selectedFactors,
   priorResponses,
   tokenUsed,
+  onOpenAdminLogin,
 }) => {
   const summaryRef = useRef<HTMLDivElement>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -663,6 +666,22 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
           <span>Kubara Sp. z o.o. • Roczna Ewaluacja Pracownicza 360</span>
           <span>Wygenerowano automatycznie w systemie ankietowym</span>
         </div>
+
+        {/* Organizer access button (protected by password) */}
+        {onOpenAdminLogin && (
+          <div className="pt-5 pb-2 text-center border-t border-slate-200/80">
+            <button
+              onClick={onOpenAdminLogin}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Jesteś Krzysztofem Wieczorkiem? Przejdź do Panelu Organizatora & Wyników</span>
+            </button>
+            <p className="text-[11px] text-slate-500 mt-1.5">
+              Dostęp do zbiorczego raportu, frekwencji i tokenów wymaga podania hasła organizatora.
+            </p>
+          </div>
+        )}
       </div>
 
     </div>

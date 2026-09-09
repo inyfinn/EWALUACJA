@@ -447,8 +447,21 @@ export function buildOverallEvaluationSummary(
     const questionObj = DEFAULT_QUESTIONS.find(q => q.dimension === key);
     let score = 0;
     if (questionObj) {
-      questionObj.subQuestions.forEach(sq => {
-        score += answers[sq.id] || 6; // default 6 if unset
+      const qIdx = DEFAULT_QUESTIONS.indexOf(questionObj) + 1;
+      questionObj.subQuestions.forEach((sq, sqIdx) => {
+        if (typeof answers[sq.id] === 'number') {
+          score += answers[sq.id];
+          return;
+        }
+        const letter = String.fromCharCode(97 + sqIdx);
+        const fb = [`q${qIdx}_${letter}`, `q${qIdx}_${sqIdx + 1}`, `${key}_${sqIdx + 1}`];
+        for (const k of fb) {
+          if (typeof answers[k] === 'number') {
+            score += answers[k];
+            return;
+          }
+        }
+        score += 6; // default 6 if unset
       });
     } else {
       score = 18;
@@ -495,8 +508,9 @@ export function buildOverallEvaluationSummary(
     }
   });
 
-  const isFirstSubmission = priorResponses.length === 0;
-  const priorSubmissionsCount = priorResponses.length;
+  const validPriorResponses = priorResponses.filter(r => !r.excludedFromReport);
+  const isFirstSubmission = validPriorResponses.length === 0;
+  const priorSubmissionsCount = validPriorResponses.length;
 
   let favourabilityDiffPercent = 0;
   let negativityDiffPercent = 0;
@@ -510,7 +524,7 @@ export function buildOverallEvaluationSummary(
     let priorNegativeSum = 0;
     let priorPositiveSum = 0;
 
-    priorResponses.forEach(r => {
+    validPriorResponses.forEach(r => {
       let rSum = 0;
       let rCount = 0;
       let rNeg = 0;
