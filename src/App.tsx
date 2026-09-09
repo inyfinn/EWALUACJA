@@ -3,16 +3,10 @@ import {
   ShieldCheck, 
   BarChart3, 
   Key, 
-  BookOpen, 
-  FileQuestion, 
   Trash2, 
-  Database,
-  Lock,
-  ArrowRight,
-  Eye,
-  CheckCircle2,
-  ExternalLink,
-  ChevronLeft
+  Lock, 
+  Eye, 
+  ChevronLeft 
 } from 'lucide-react';
 import { DEFAULT_QUESTIONS } from './data/surveyQuestions';
 import { 
@@ -20,18 +14,16 @@ import {
   getStoredResponses, 
   computeDimensionsAnalytics, 
   clearAllResponses, 
-  loadSampleDemoData,
   validateTokenCode
 } from './utils/surveyStorage';
 import { TokenManager } from './components/TokenManager';
 import { ReportDashboard } from './components/ReportDashboard';
 import { SurveyFillView } from './components/SurveyFillView';
-import { EvaluationStrategyGuide } from './components/EvaluationStrategyGuide';
 
 export function App() {
   // Modes: 'survey' (for employee respondent) vs 'admin' (for Krzysztof Wieczorek)
   const [viewMode, setViewMode] = useState<'survey' | 'admin'>('survey');
-  const [adminTab, setAdminTab] = useState<'tokens' | 'report' | 'guide'>('tokens');
+  const [adminTab, setAdminTab] = useState<'tokens' | 'report'>('tokens');
   
   const [tokens, setTokens] = useState(getStoredTokens());
   const [responses, setResponses] = useState(getStoredResponses());
@@ -70,11 +62,6 @@ export function App() {
       clearAllResponses();
       refreshData();
     }
-  };
-
-  const handleLoadDemo = () => {
-    loadSampleDemoData();
-    refreshData();
   };
 
   const handleTestTokenFromAdmin = (tokenCode: string) => {
@@ -183,29 +170,20 @@ export function App() {
                 <span className="sm:hidden">Ankieta</span>
               </button>
 
-              {responses.length > 0 ? (
+              {responses.length > 0 && (
                 <button
                   onClick={handleClearData}
-                  title="Wyczyść dane (przygotuj czysty formularz dla współpracowników)"
+                  title="Wyczyść dane (zresetuj do 0)"
                   className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 font-semibold text-xs rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Wyczyść ({responses.length})</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleLoadDemo}
-                  title="Wczytaj idealne odpowiedzi (100%), aby przetestować raport"
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Wygeneruj 100% idealną ankietę (test)</span>
+                  <span className="hidden sm:inline">Wyczyść odpowiedzi ({responses.length})</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* 3 Intuitive Tabs */}
+          {/* 2 Clear Tabs */}
           <div className="flex items-center gap-2 border-t border-slate-100 overflow-x-auto py-2.5">
             <button
               onClick={() => setAdminTab('tokens')}
@@ -230,18 +208,6 @@ export function App() {
               <BarChart3 className="w-4 h-4" />
               <span>2. Raport & Wyniki 4 Filarów ({responses.length})</span>
             </button>
-
-            <button
-              onClick={() => setAdminTab('guide')}
-              className={`py-2 px-4 text-xs font-bold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                adminTab === 'guide'
-                  ? 'text-white bg-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>3. Przewodnik Rozmowy Rocznej</span>
-            </button>
           </div>
         </div>
       </header>
@@ -263,8 +229,6 @@ export function App() {
             responses={responses}
           />
         )}
-
-        {adminTab === 'guide' && <EvaluationStrategyGuide />}
       </main>
     </div>
   );

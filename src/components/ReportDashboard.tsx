@@ -276,30 +276,47 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
           </div>
         )}
 
-        {/* Strategic Talking Points Bento Card: Wnioski i Rozwój */}
-        <div className="bg-slate-50 border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-xs">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-slate-200 text-slate-800 flex items-center justify-center shrink-0 mt-0.5">
-              <Compass className="w-5 h-5" />
+        {/* Empty state notification if 0 responses */}
+        {stats.totalResponses === 0 && (
+          <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-8 sm:p-10 text-center shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
+              <Users className="w-6 h-6" />
             </div>
-            <div className="flex-1">
-              <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
-                Kluczowe Wnioski do Rozmowy Podsumowującej z Przełożonym
-              </h4>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
-                Rzetelne podsumowanie oparte na faktach zebranych w firmie <strong>Kubara Sp. z o.o.</strong>:
-              </p>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {stats.keyTalkingPoints.map((point, i) => (
-                  <div key={i} className="text-xs sm:text-sm text-slate-800 font-medium bg-white p-3.5 rounded-2xl border border-slate-200 flex items-start gap-2.5 shadow-2xs leading-snug">
-                    <ChevronRight className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
-                    <span>{point}</span>
-                  </div>
-                ))}
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              Raport jest czysty i oczekuje na pierwsze głosy
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+              Nikt jeszcze nie wypełnił ankiety. Wszystkie wskaźniki i oceny wynoszą 0.0. Żadne przykładowe ani fikcyjne dane nie są tutaj wyświetlane. Przejdź do zakładki <strong>„1. Kody i Linki do Rozesłania”</strong>, aby przekazać linki współpracownikom.
+            </p>
+          </div>
+        )}
+
+        {/* Strategic Talking Points Bento Card: Wnioski i Rozwój */}
+        {stats.totalResponses > 0 && stats.keyTalkingPoints.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-slate-200 text-slate-800 flex items-center justify-center shrink-0 mt-0.5">
+                <Compass className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
+                  Kluczowe Wnioski z Raportu
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  Rzetelne podsumowanie oparte na faktach zebranych w ankietach:
+                </p>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {stats.keyTalkingPoints.map((point, i) => (
+                    <div key={i} className="text-xs sm:text-sm text-slate-800 font-medium bg-white p-3.5 rounded-2xl border border-slate-200 flex items-start gap-2.5 shadow-2xs leading-snug">
+                      <ChevronRight className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+                      <span>{point}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 4 Dimension Breakdown - Bento Grid 2x2 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -453,45 +470,6 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
           ) : (
             <p className="text-sm text-slate-500 italic">Brak dodatkowych komentarzy tekstowych od uczestników.</p>
           )}
-        </div>
-
-        {/* Script for 1-on-1 Meeting - Bento Dark Card */}
-        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xs ring-1 ring-slate-800">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-1">
-              <Briefcase className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">
-                Scenariusz rozmowy rocznej: Podsumowanie osiągnięć i plan rozwoju
-              </h3>
-              <p className="text-slate-300 text-xs sm:text-sm mt-1 leading-relaxed">
-                Taktowny, profesjonalny i konstruktywny schemat rozmowy z przełożonym w Kubara Sp. z o.o.:
-              </p>
-
-              <div className="mt-4 space-y-3 text-xs sm:text-sm text-slate-200">
-                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80">
-                  <span className="text-amber-600 font-bold block mb-1 text-xs uppercase tracking-wider">1. Wstęp (Nawiązanie do wytycznych szefa):</span>
-                  „Zgodnie z naszą rozmową, zebrałem feedback od bliskich współpracowników na 4 wskazanych polach (Komunikacja, Terminowość, Jakość, Wkład własny). Zastosowałem rzetelną skalę 1-10 z konkretnymi wskaźnikami, 100% anonimowością i kodami jednorazowymi.”
-                </div>
-
-                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80">
-                  <span className="text-amber-600 font-bold block mb-1 text-xs uppercase tracking-wider">2. Zadowolenie zespołu & wniesiona wartość (Co się udało, gdzie spełniam/przerastam oczekiwania):</span>
-                  „Współpracownicy ocenili naszą współpracę na średnią {stats.overallAverage > 0 ? `${stats.overallAverage}/10.0 (${stats.overallAverage5}/5.0)` : '—'}. Zespół wskazał zadowolenie ze współpracy ze mną, wysoką kulturę, rzetelność oraz terminowość dowożenia zadań nawet pod presją. Czuję, że wdrożyłem się w 100% i wniosłem realną wartość do firmy.”
-                </div>
-
-                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80">
-                  <span className="text-amber-600 font-bold block mb-1 text-xs uppercase tracking-wider">3. Spojrzenie na obszary do doszlifowania (Dojrzałość i samodoskonalenie):</span>
-                  „Przeanalizowałem też wskazówki od zespołu dotyczące obszarów, które warto jeszcze doszlifować w drugim roku. Zależy mi na stałym rozwoju i podnoszeniu poprzeczki.”
-                </div>
-
-                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80">
-                  <span className="text-amber-600 font-bold block mb-1 text-xs uppercase tracking-wider">4. Dalsza ścieżka rozwoju i kolejne cele:</span>
-                  „W związku z tym chciałbym zapytać, jak oceniasz ten pierwszy rok z perspektywy firmy, jak widzisz moją dalszą ścieżkę rozwoju w Kubara Sp. z o.o. oraz jakie nowe cele możemy wyznaczyć na kolejny okres?”
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
       </div>

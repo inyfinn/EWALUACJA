@@ -2,11 +2,26 @@ import { SurveyQuestion, SurveyResponse, VoterToken, DimensionStats, DimensionKe
 import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
 
 const STORAGE_KEYS = {
-  TOKENS: 'kubara_eval_tokens_v5',
-  RESPONSES: 'kubara_eval_responses_v5',
-  CONFIG: 'kubara_eval_config_v5',
-  CURRENT_TOKEN: 'kubara_eval_current_token_v5',
+  TOKENS: 'kubara_eval_tokens_v6',
+  RESPONSES: 'kubara_eval_responses_v6',
+  CONFIG: 'kubara_eval_config_v6',
+  CURRENT_TOKEN: 'kubara_eval_current_token_v6',
+  CUSTOM_BASE_URL: 'kubara_eval_base_url_v6',
 };
+
+// Immediately wipe any old mock/seed data from previous versions in browser
+if (typeof window !== 'undefined') {
+  try {
+    ['kubara_eval_responses_v5', 'kubara_eval_tokens_v5', 
+     'kubara_eval_responses_v4', 'kubara_eval_tokens_v4',
+     'kubara_eval_responses_v3', 'kubara_eval_tokens_v3',
+     'kubara_eval_responses_v2', 'kubara_eval_tokens_v2',
+     'kubara_eval_responses_v1', 'kubara_eval_tokens_v1'
+    ].forEach(k => localStorage.removeItem(k));
+  } catch (e) {
+    // ignore
+  }
+}
 
 // Generate random safe 6-character alphanumeric code (e.g. KUB-842)
 export function generateTokenCode(index: number): string {
@@ -39,49 +54,8 @@ export function initializeDefaultTokens(cleanState: boolean = true): VoterToken[
 }
 
 export function initializeDefaultResponses(): SurveyResponse[] {
-  // Empty by default for clean, pristine deployment
+  // Strictly empty - no fake or demo data
   return [];
-}
-
-export function initializeDemoResponses(): SurveyResponse[] {
-  return [
-    {
-      id: 'resp_seed_1',
-      createdAt: new Date().toISOString(),
-      tokenUsed: 'KUB-1DEMO',
-      answers: {
-        kom_1_task: 10, kom_1_perception: 10, kom_1_relation: 10,
-        term_1_task: 10, term_1_perception: 10, term_1_relation: 10,
-        jak_1_task: 10, jak_1_perception: 10, jak_1_relation: 10,
-        wklad_1_task: 10, wklad_1_perception: 10, wklad_1_relation: 10,
-      },
-      selectedFactors: {
-        kom_1: [
-          'Naprawdę świetnie mi się z nim współpracuje – jest życzliwy, pomocny i buduje świetną atmosferę',
-          'Zawsze jasno, konkretnie i bez niedomówień formułuje ustalenia',
-          'Doskonale słucha innych, szanuje odmienne zdanie i jest w 100% otwarty na dialog'
-        ],
-        term_1: [
-          'Zawsze domyka terminy, nawet pod bardzo dużą presją czasu',
-          'Zadania są często gotowe przed wyznaczonym czasem – przerasta pod tym względem oczekiwania'
-        ],
-        jak_1: [
-          'Naprawdę rzetelnie, skrupulatnie i dokładnie wykonuje swoją pracę',
-          'Samodzielnie wyszukuje i eliminuje błędy zanim dotrą do odbiorcy lub przełożonego'
-        ],
-        wklad_1: [
-          'Stara się i wkłada mnóstwo serca oraz autentycznego zaangażowania w pracę',
-          'Prawdziwy filar i motor napędowy dobrej energii – w wielu aspektach przerasta oczekiwania'
-        ],
-      },
-      dimensionComments: {
-        kom_1: 'Pełen profesjonalizm i świetny kontakt na co dzień.',
-        wklad_1: 'Niezastąpiony członek zespołu, wspaniała inicjatywa.'
-      },
-      collaborationContext: 'czesto',
-      teamRelation: 'ten_sam_zespol',
-    }
-  ];
 }
 
 export function getStoredTokens(): VoterToken[] {
@@ -180,24 +154,85 @@ export function clearAllResponses() {
   saveTokens(tokens);
 }
 
-export function loadSampleDemoData() {
-  const demoResponses = initializeDemoResponses();
-  localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(demoResponses));
-  const tokens = getStoredTokens().map((t, idx) => ({
-    ...t,
-    used: idx < demoResponses.length,
-    usedAt: idx < demoResponses.length ? new Date().toISOString() : undefined,
-    responseId: idx < demoResponses.length ? demoResponses[idx].id : undefined,
-  }));
-  saveTokens(tokens);
+// Base URL resolution for survey links (ensures links do not require Google login)
+export interface SurveyBaseUrlInfo {
+  url: string;
+  mode: 'shared' | 'dev' | 'custom';
+  isAiStudioDev: boolean;
+  defaultDevUrl: string;
+  publicSharedUrl: string;
+  customUrl: string;
+}
+
+export function getSurveyBaseUrlInfo(): SurveyBaseUrlInfo {
+  if (typeof window === 'undefined') {
+    return {
+      url: '',
+      mode: 'dev',
+      isAiStudioDev: false,
+      defaultDevUrl: '',
+      publicSharedUrl: '',
+      customUrl: '',
+    };
+  }
+
+  const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_BASE_URL) || '';
+  const storedMode = (localStorage.getItem('kubara_eval_url_mode_v5') as 'shared' | 'dev' | 'custom') || null;
+  const origin = window.location.origin;
+  const pathname = window.location.pathname;
+  const isAiStudioDev = origin.includes('ais-dev-');
+
+  const defaultDevUrl = `${origin}${pathname}`.replace(/\/+$/, '');
+  const publicSharedUrl = isAiStudioDev 
+    ? `${origin.replace('ais-dev-', 'ais-pre-')}${pathname}`.replace(/\/+$/, '') 
+    : defaultDevUrl;
+
+  // Mode resolution
+  let mode: 'shared' | 'dev' | 'custom' = storedMode || (isAiStudioDev ? 'shared' : 'dev');
+  if (storedMode === 'custom' && !custom.trim()) {
+    mode = isAiStudioDev ? 'shared' : 'dev';
+  }
+
+  let resolvedUrl = defaultDevUrl;
+  if (mode === 'shared') {
+    resolvedUrl = publicSharedUrl;
+  } else if (mode === 'custom' && custom.trim()) {
+    resolvedUrl = custom.trim().replace(/\/+$/, '');
+  } else {
+    resolvedUrl = defaultDevUrl;
+  }
+
+  return {
+    url: resolvedUrl,
+    mode,
+    isAiStudioDev,
+    defaultDevUrl,
+    publicSharedUrl,
+    customUrl: custom,
+  };
+}
+
+export function setSurveyUrlMode(mode: 'shared' | 'dev' | 'custom') {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('kubara_eval_url_mode_v5', mode);
+}
+
+export function setSurveyCustomBaseUrl(url: string | null) {
+  if (typeof window === 'undefined') return;
+  if (!url || !url.trim()) {
+    localStorage.removeItem(STORAGE_KEYS.CUSTOM_BASE_URL);
+  } else {
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_BASE_URL, url.trim().replace(/\/+$/, ''));
+    localStorage.setItem('kubara_eval_url_mode_v5', 'custom');
+  }
 }
 
 // Generate direct URL for a specific token
 export function getSurveyUrl(tokenCode: string): string {
-  if (typeof window === 'undefined') return `?token=${tokenCode}`;
-  const origin = window.location.origin;
-  const pathname = window.location.pathname;
-  return `${origin}${pathname}?token=${tokenCode.trim().toUpperCase()}`;
+  const info = getSurveyBaseUrlInfo();
+  const code = tokenCode.trim().toUpperCase();
+  if (!info.url) return `?token=${code}`;
+  return `${info.url}?token=${code}`;
 }
 
 export function validateTokenCode(code: string): { valid: boolean; used: boolean; label?: string; error?: string } {
@@ -267,11 +302,7 @@ export function computeDimensionsAnalytics(
       salaryReadinessScore: 0,
       topGlobalDrivers: [],
       topImprovementGlobal: [],
-      keyTalkingPoints: [
-        'Ankieta jest gotowa do rozesłania współpracownikom w firmie Kubara Sp. z o.o.',
-        'W zakładce „Kody Zaproszeń” znajdziesz gotowe, indywidualne linki i kody dla zespołu.',
-        'Gdy współpracownicy oddadzą pierwsze głosy, raport automatycznie wyliczy średnie i podsumowanie.',
-      ],
+      keyTalkingPoints: [],
       employeeArchetype: { title: 'Brak danych', description: 'Oczekujemy na głosy...' },
       competencyProfile: { relational: 0, execution: 0, quality: 0, initiative: 0 },
     };
