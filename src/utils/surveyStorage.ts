@@ -9,7 +9,6 @@ const STORAGE_KEYS = {
   RESPONSES: 'kubara_eval_responses_v6',
   CONFIG: 'kubara_eval_config_v6',
   CURRENT_TOKEN: 'kubara_eval_current_token_v6',
-  CUSTOM_BASE_URL: 'kubara_eval_base_url_v6',
 };
 
 // Immediately wipe any old mock/seed data from previous versions in browser
@@ -148,12 +147,12 @@ export async function importResponseFromFileAsync(response: SurveyResponse): Pro
   }
 }
 
-export async function addCustomTokenAsync(label: string, surveyId?: string): Promise<VoterToken> {
+export async function addCustomTokenAsync(label: string, surveyId?: string, test = false): Promise<VoterToken> {
   try {
     const res = await fetch(apiUrl('api/tokens'), {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ label, surveyId }),
+      body: JSON.stringify({ label, surveyId, test }),
     });
     if (res.ok) {
       const token = await res.json();
@@ -163,7 +162,7 @@ export async function addCustomTokenAsync(label: string, surveyId?: string): Pro
   } catch (e) {
     console.warn('Failed to add token on server, adding locally:', e);
   }
-  return addCustomToken(label);
+  return addCustomToken(label, test);
 }
 
 export async function deleteSingleResponseAsync(responseId: string): Promise<void> {
@@ -320,13 +319,14 @@ export function saveResponse(response: SurveyResponse): { success: boolean; erro
   return { success: true };
 }
 
-export function addCustomToken(label: string): VoterToken {
+export function addCustomToken(label: string, test = false): VoterToken {
   const tokens = getStoredTokens();
   const newToken: VoterToken = {
     id: `token_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     code: generateTokenCode(tokens.length),
     label: label.trim() || `Współpracownik ${tokens.length + 1}`,
     used: false,
+    test: test || undefined,
   };
   tokens.push(newToken);
   saveTokens(tokens);
@@ -349,83 +349,6 @@ export function clearAllResponses() {
   saveTokens(tokens);
 }
 
-// Base URL resolution for survey links (ensures links do not require Google login)
-export interface SurveyBaseUrlInfo {
-  url: string;
-  mode: 'shared' | 'dev' | 'custom';
-  isAiStudioDev: boolean;
-  defaultDevUrl: string;
-  publicSharedUrl: string;
-  customUrl: string;
-}
-
-export function getSurveyBaseUrlInfo(): SurveyBaseUrlInfo {
-  if (typeof window === 'undefined') {
-    return {
-      url: '',
-      mode: 'dev',
-      isAiStudioDev: false,
-      defaultDevUrl: '',
-      publicSharedUrl: '',
-      customUrl: '',
-    };
-  }
-
-  const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_BASE_URL) || '';
-  const storedMode = (localStorage.getItem('kubara_eval_url_mode_v5') as 'shared' | 'dev' | 'custom') || null;
-  const origin = window.location.origin;
-  const pathname = window.location.pathname;
-  const isAiStudioDev = origin.includes('ais-dev-');
-
-  const defaultDevUrl = `${origin}${pathname}`.replace(/\/+$/, '');
-  const nasPublicUrl = 'https://inyfinn.synology.me/panel-ankiet';
-  const publicSharedUrl = origin.includes('synology.me')
-    ? `${origin}${pathname}`.replace(/\/+$/, '') || nasPublicUrl
-    : isAiStudioDev
-      ? `${origin.replace('ais-dev-', 'ais-pre-')}${pathname}`.replace(/\/+$/, '')
-      : nasPublicUrl;
-
-  // Mode resolution
-  let mode: 'shared' | 'dev' | 'custom' = storedMode || (isAiStudioDev ? 'shared' : 'dev');
-  if (storedMode === 'custom' && !custom.trim()) {
-    mode = isAiStudioDev ? 'shared' : 'dev';
-  }
-
-  let resolvedUrl = defaultDevUrl;
-  if (mode === 'shared') {
-    resolvedUrl = publicSharedUrl;
-  } else if (mode === 'custom' && custom.trim()) {
-    resolvedUrl = custom.trim().replace(/\/+$/, '');
-  } else {
-    resolvedUrl = defaultDevUrl;
-  }
-
-  return {
-    url: resolvedUrl,
-    mode,
-    isAiStudioDev,
-    defaultDevUrl,
-    publicSharedUrl,
-    customUrl: custom,
-  };
-}
-
-export function setSurveyUrlMode(mode: 'shared' | 'dev' | 'custom') {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('kubara_eval_url_mode_v5', mode);
-}
-
-export function setSurveyCustomBaseUrl(url: string | null) {
-  if (typeof window === 'undefined') return;
-  if (!url || !url.trim()) {
-    localStorage.removeItem(STORAGE_KEYS.CUSTOM_BASE_URL);
-  } else {
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_BASE_URL, url.trim().replace(/\/+$/, ''));
-    localStorage.setItem('kubara_eval_url_mode_v5', 'custom');
-  }
-}
-
-// Generate direct URL for a specific token
 export function getSurveyUrl(tokenCode: string, slug = 'ewaluacja-pracownika'): string {
   return fillUrl(slug, tokenCode);
 }

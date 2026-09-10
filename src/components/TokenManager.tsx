@@ -1,24 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   KeyRound, 
   Copy, 
   Check, 
-  Send, 
   ShieldCheck, 
-  Users, 
   Plus, 
   Trash2, 
   ExternalLink, 
   MessageSquare, 
-  AlertCircle, 
-  AlertTriangle,
   Clock, 
   CheckCircle2,
-  Globe,
-  Settings2,
-  HelpCircle,
-  Sparkles,
-  Link as LinkIcon,
   PlayCircle,
   RotateCcw,
   EyeOff,
@@ -28,10 +19,6 @@ import {
 import { VoterToken, SurveyResponse } from '../types';
 import { 
   getSurveyUrl, 
-  getSurveyBaseUrlInfo, 
-  setSurveyUrlMode,
-  setSurveyCustomBaseUrl, 
-  SurveyBaseUrlInfo, 
   addCustomTokenAsync, 
   deleteTokenAsync,
   toggleExcludeResponseAsync,
@@ -39,7 +26,6 @@ import {
   importResponseFromFileAsync
 } from '../utils/surveyStorage';
 import { parseSurveyFile } from '../utils/surveyTransfer';
-import { fillUrl } from '../utils/routerBase';
 import { HintTooltip } from './HintTooltip';
 
 interface TokenManagerProps {
@@ -63,62 +49,22 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   onSelectTokenToFill,
 }) => {
   const [newLabel, setNewLabel] = useState('');
+  const [createAsTest, setCreateAsTest] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedMessageFor, setCopiedMessageFor] = useState<string | null>(null);
-
-  // URL configuration state
-  const [baseUrlInfo, setBaseUrlInfo] = useState<SurveyBaseUrlInfo>(getSurveyBaseUrlInfo());
-  const [showUrlSettings, setShowUrlSettings] = useState(false);
-  const [customUrlInput, setCustomUrlInput] = useState('');
-  const [urlSaveSuccess, setUrlSaveSuccess] = useState(false);
   const [importStatus, setImportStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 
-  useEffect(() => {
-    const info = getSurveyBaseUrlInfo();
-    setBaseUrlInfo(info);
-    setCustomUrlInput(info.customUrl || info.url);
-  }, []);
-
-  const handleSelectMode = (mode: 'shared' | 'dev' | 'custom') => {
-    setSurveyUrlMode(mode);
-    const updated = getSurveyBaseUrlInfo();
-    setBaseUrlInfo(updated);
-    setCustomUrlInput(updated.customUrl || updated.url);
-  };
-
-  const handleSaveCustomUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSurveyCustomBaseUrl(customUrlInput.trim() || null);
-    const updated = getSurveyBaseUrlInfo();
-    setBaseUrlInfo(updated);
-    setCustomUrlInput(updated.customUrl || updated.url);
-    setUrlSaveSuccess(true);
-    setTimeout(() => setUrlSaveSuccess(false), 2500);
-  };
-
-  const handleUseAiStudioPre = () => {
-    handleSelectMode('shared');
-    setUrlSaveSuccess(true);
-    setTimeout(() => setUrlSaveSuccess(false), 2500);
-  };
-
-  const handleResetUrl = () => {
-    handleSelectMode(baseUrlInfo.isAiStudioDev ? 'shared' : 'dev');
-    setUrlSaveSuccess(true);
-    setTimeout(() => setUrlSaveSuccess(false), 2500);
-  };
-
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addCustomTokenAsync(newLabel.trim() || `Współpracownik ${tokens.length + 1}`, surveyId);
+    await addCustomTokenAsync(newLabel.trim() || `Współpracownik ${tokens.length + 1}`, surveyId, createAsTest);
     setNewLabel('');
     onTokensUpdated();
   };
 
   const handleBatch = async (count: number) => {
     for (let i = 0; i < count; i++) {
-      await addCustomTokenAsync(`Współpracownik ${tokens.length + i + 1}`, surveyId);
+      await addCustomTokenAsync(`Współpracownik ${tokens.length + i + 1}`, surveyId, createAsTest);
     }
     onTokensUpdated();
   };
@@ -189,10 +135,10 @@ Ankieta obejmuje 4 kluczowe obszary:
 
 Zależy mi na szczerym, obiektywnym feedbacku: co funkcjonuje bardzo dobrze, a jakie kwestie warto jeszcze doszlifować we wspólnej pracy.
 
-👉 Twój bezpośredni link do ankiety (bez logowania):
+👉 Twój bezpośredni link do ankiety:
 ${directLink}
 
-(Ankieta jest całkowicie anonimowa i NIE wymaga logowania na konto Google ani rejestracji. Kod służy wyłącznie do zapobiegania wielokrotnemu głosowaniu. Wypełnienie zajmuje ok. 2–3 minuty).
+Ankieta jest anonimowa. Link działa jeden raz. Wypełnienie zajmuje ok. 2–3 minuty.
 
 Dziękuję za Twój czas i pomoc!`;
 
@@ -222,18 +168,14 @@ Dziękuję za Twój czas i pomoc!`;
             </h2>
             <p className="text-sm text-dk-ink/70 mt-2 leading-relaxed max-w-[65ch]">
               Każdy współpracownik otrzymuje swój <strong>indywidualny link</strong>.
-              Gdy wejdzie w link i wyśle odpowiedzi, aplikacja <strong>oznacza ten link jako wypełniony</strong> i dolicza wyniki do raportu, bez konta Google i bez haseł.
+              Gdy wyśle odpowiedzi, link zostaje oznaczony jako wypełniony, a wynik trafia do raportu.
             </p>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-dk-violet-soft grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-dk-ink/75">
+          <div className="mt-5 pt-4 border-t border-dk-violet-soft grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-dk-ink/75">
             <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
               <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
               <span>Wejście bezpośrednio z linku</span>
-            </div>
-            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
-              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
-              <span>Zero kont Google i haseł</span>
             </div>
             <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
               <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
@@ -270,194 +212,35 @@ Dziękuję za Twój czas i pomoc!`;
         </div>
       </div>
 
-      {/* EXPLANATION OF 404 & URL MODE SWITCHER */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-dk-violet-soft text-dk-violet-text border border-dk-violet-soft">
-                Format linku dla współpracowników
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                Aktywny adres bazowy: <strong className="text-slate-800 font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">{baseUrlInfo.url}</strong>
-              </span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold text-dk-ink">
-              Wybierz tryb generowania linków
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <HintTooltip text="Pokazuje pole na własny adres bazowy linków, np. po zmianie domeny.">
-              <button
-                type="button"
-                onClick={() => setShowUrlSettings(!showUrlSettings)}
-                className="btn-dk-ghost whitespace-nowrap"
-              >
-                <Settings2 className="w-3.5 h-3.5 text-dk-violet" />
-                <span>{showUrlSettings ? 'Ukryj edycję' : 'Własny URL'}</span>
-              </button>
-            </HintTooltip>
-            {tokens.length > 0 && (
-              <HintTooltip text="Otwiera przykładowy unikalny link w nowej karcie, tak jak dostanie współpracownik.">
-                <a
-                  href={getSurveyUrl(tokens[0].code, surveySlug)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-dk-primary whitespace-nowrap"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Testuj link</span>
-                </a>
-              </HintTooltip>
-            )}
-          </div>
-        </div>
-
-        {/* 2 Main Choice Cards: Shared vs Dev */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {/* Card 1: Shared Public (ais-pre) */}
-          <HintTooltip className="w-full" text="Linki na publiczny adres Synology. Współpracownik nie loguje się do panelu.">
-          <button
-            type="button"
-            onClick={() => handleSelectMode('shared')}
-            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-              baseUrlInfo.mode === 'shared'
-                ? 'bg-indigo-50/70 border-indigo-400 ring-2 ring-indigo-500/20 shadow-xs'
-                : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-2">
-                  <Globe className={`w-4 h-4 ${baseUrlInfo.mode === 'shared' ? 'text-indigo-600' : 'text-slate-500'}`} />
-                  <span className="font-bold text-slate-900 text-sm">
-                    Link Publiczny (dla Współpracowników)
-                  </span>
-                </div>
-                {baseUrlInfo.mode === 'shared' && (
-                  <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-md bg-dk-green text-white">
-                    Aktywny
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Adres publiczny na Synology: <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-indigo-700">https://inyfinn.synology.me/panel-ankiet</code>.
-                <strong> Nie wymaga konta ani logowania Google.</strong> Wypełnienia zapisują się w bazie na NAS.
-              </p>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Dostępny publicznie dla każdego bez konieczności logowania.</span>
-            </div>
-          </button>
-          </HintTooltip>
-
-          {/* Card 2: Dev Link (ais-dev) */}
-          <HintTooltip className="w-full" text="Używa bieżącego adresu roboczego. Do testów u Ciebie, nie do rozsyłania na zewnątrz.">
-          <button
-            type="button"
-            onClick={() => handleSelectMode('dev')}
-            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-              baseUrlInfo.mode === 'dev'
-                ? 'bg-indigo-50/70 border-indigo-400 ring-2 ring-indigo-500/20 shadow-xs'
-                : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-2">
-                  <Sparkles className={`w-4 h-4 ${baseUrlInfo.mode === 'dev' ? 'text-indigo-600' : 'text-slate-500'}`} />
-                  <span className="font-bold text-slate-900 text-sm">
-                    Link Deweloperski (Bieżący podgląd)
-                  </span>
-                </div>
-                {baseUrlInfo.mode === 'dev' && (
-                  <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-md bg-dk-green text-white">
-                    Aktywny
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Używa adresu roboczego <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-slate-700">ais-dev-...</code>.
-                Działa w Twoim bieżącym podglądzie.
-              </p>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-slate-500 flex items-center gap-1.5">
-              <span>Wewnętrzny link do testów</span>
-            </div>
-          </button>
-          </HintTooltip>
-        </div>
-
-        {/* Collapsible URL Settings Panel */}
-        {showUrlSettings && (
-          <form onSubmit={handleSaveCustomUrl} className="pt-3 border-t border-indigo-100 space-y-3 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <LinkIcon className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Wpisz własny adres URL (np. po wdrożeniu na własnym serwerze lub Cloud Run):</span>
-              </label>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="url"
-                value={customUrlInput}
-                onChange={e => setCustomUrlInput(e.target.value)}
-                placeholder="np. https://ankieta.twojadomena.pl"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <HintTooltip text="Zapisuje ten adres jako bazę wszystkich nowych linków zaproszeń.">
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer shrink-0 shadow-2xs"
-                >
-                  Zapisz adres
-                </button>
-              </HintTooltip>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
-              <HintTooltip text="Ustawia publiczny adres Synology jako bazę linków.">
-                <button
-                  type="button"
-                  onClick={handleUseAiStudioPre}
-                  className="px-2.5 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-semibold cursor-pointer transition-colors"
-                >
-                  Użyj publicznego adresu (ais-pre)
-                </button>
-              </HintTooltip>
-              <HintTooltip text="Wraca do automatycznie wykrytego adresu tej aplikacji.">
-                <button
-                  type="button"
-                  onClick={handleResetUrl}
-                  className="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold cursor-pointer transition-colors"
-                >
-                  Przywróć domyślny
-                </button>
-              </HintTooltip>
-              {urlSaveSuccess && (
-                <span className="text-emerald-700 font-bold flex items-center gap-1 text-xs animate-fade-in">
-                  <Check className="w-3.5 h-3.5" /> Zapisano!
-                </span>
-              )}
-            </div>
-          </form>
-        )}
-      </div>
-
       {/* Action Bar: Create Token & Batch Generation */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <form onSubmit={handleAddSingle} className="flex-1 flex gap-2">
+          <form onSubmit={handleAddSingle} className="flex-1 flex flex-wrap items-center gap-2">
             <input
               type="text"
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
               placeholder="Nazwa współpracownika (np. Dział Logistyki, Jan Kowalski)..."
-                className="flex-1 px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
+                className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
             />
+            <HintTooltip text="Włącza tryb testowy: wynik z tego linku nie wlicza się do raportu.">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={createAsTest}
+                onClick={() => setCreateAsTest((v) => !v)}
+                className="inline-flex items-center gap-2 shrink-0 cursor-pointer"
+              >
+                <span
+                  className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${createAsTest ? 'bg-dk-green' : 'bg-slate-300'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${createAsTest ? 'translate-x-4' : 'translate-x-0'}`}
+                  />
+                </span>
+                <span className="text-xs font-semibold text-dk-ink">Link testowy</span>
+              </button>
+            </HintTooltip>
             <HintTooltip text="Tworzy jeden nowy unikalny kod i link dla tej osoby.">
               <button
                 type="submit"
@@ -579,6 +362,11 @@ Dziękuję za Twój czas i pomoc!`;
                         <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
                           kod: {token.code}
                         </span>
+                        {token.test && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            Testowy
+                          </span>
+                        )}
                         {token.used ? (
                           <>
                             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 border border-emerald-200">

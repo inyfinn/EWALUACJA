@@ -120,6 +120,7 @@ export interface VoterToken {
   usedAt?: string;
   responseId?: string;
   surveyId?: string;
+  test?: boolean;
 }
 
 export interface SurveyConfig {

@@ -69,6 +69,7 @@ interface VoterToken {
   usedAt?: string;
   responseId?: string;
   surveyId?: string;
+  test?: boolean;
 }
 
 interface SurveyResponse {
@@ -734,7 +735,7 @@ app.post('/api/tokens', (req, res) => {
   const ctx = requirePanel(req, res);
   if (!ctx) return;
   const { store, panel } = ctx;
-  const { label, surveyId } = req.body || {};
+  const { label, surveyId, test } = req.body || {};
   const resolvedSurveyId = typeof surveyId === 'string' && surveyId
     ? surveyId
     : (ownedSurveys(store, panel.id)[0]?.id || '');
@@ -757,6 +758,7 @@ app.post('/api/tokens', (req, res) => {
     label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Współpracownik ${scopedCount + 1}`,
     used: false,
     surveyId: resolvedSurveyId,
+    test: Boolean(test),
   };
 
   store.tokens.push(newToken);
@@ -1019,6 +1021,9 @@ app.post('/api/responses', (req, res) => {
   token.used = true;
   token.usedAt = new Date().toISOString();
   token.responseId = response.id;
+  if (token.test) {
+    response.excludedFromReport = true;
+  }
 
   store.responses.push(response);
   writeStore(store);
