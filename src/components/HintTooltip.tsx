@@ -13,10 +13,10 @@ export function HintTooltip({ text, children, side = 'top', className = '' }: Hi
     : 'bottom-[calc(100%+8px)]';
 
   const extra = className.trim();
-  const isFixed = extra.split(/\s+/).includes('fixed');
+  const isOutOfFlow = /\b(fixed|absolute)\b/.test(extra);
 
   return (
-    <span className={`${isFixed ? '' : 'relative'} inline-flex group/hint ${extra}`}>
+    <span className={`${isOutOfFlow ? '' : 'relative'} inline-flex group/hint ${extra}`}>
       {children}
       <span
         role="tooltip"

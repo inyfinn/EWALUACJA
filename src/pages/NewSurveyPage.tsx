@@ -70,36 +70,32 @@ export function NewSurveyPage() {
     <form onSubmit={handleCreate} className="max-w-3xl space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Nowa ankieta</h2>
-        <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          Najpierw nazywasz ankietę, potem wybierasz szablon (globalny dla wszystkich albo swój prywatny).
-        </p>
       </div>
 
       <label className="block bg-white rounded-3xl border border-slate-200 p-5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">1. Nazwa ankiety (wymagana)</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nazwa</span>
         <input
           value={title}
           onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
           className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold"
-          placeholder="np. Ewaluacja Krzysztofa Wieczorka"
-          title="Ta nazwa widać na liście i na formularzu. Minimum 2 znaki."
+          placeholder="Nazwa ankiety"
           required
           minLength={2}
         />
       </label>
 
       <label className="block bg-white rounded-3xl border border-slate-200 p-5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Opis dla respondenta (opcjonalnie)</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Opis</span>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm min-h-[80px]"
-          placeholder="Jedno-dwa zdania: po co to i że jest anonimowo."
+          placeholder="Opcjonalny opis"
         />
       </label>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">2. Szablon globalny</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Szablon globalny</p>
         <div className="grid gap-3">
           {globalTpl.map((tpl) => (
             <div key={tpl.id}>
@@ -169,11 +165,10 @@ export function NewSurveyPage() {
 
       {existing.length > 0 && (
         <label className="block bg-white rounded-3xl border border-slate-200 p-5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Albo duplikuj już zapisaną ankietę</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Albo duplikuj zapisaną ankietę</span>
           <select
             value={duplicateFrom}
             onChange={(e) => setDuplicateFrom(e.target.value)}
-            title="Zamiast szablonu skopiujesz już istniejącą ankietę i dasz jej nową nazwę."
             className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
           >
             <option value="">Nie kopiuj - użyj zestawu powyżej</option>

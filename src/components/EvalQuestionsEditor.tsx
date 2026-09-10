@@ -11,13 +11,11 @@ interface Props {
 
 function FactorList({
   title,
-  hint,
   tone,
   items,
   onChange,
 }: {
   title: string;
-  hint: string;
   tone: 'positive' | 'neutral' | 'negative';
   items: string[];
   onChange: (next: string[]) => void;
@@ -38,7 +36,6 @@ function FactorList({
     <div className={`rounded-2xl border p-3 space-y-2 ${toneClass}`}>
       <div>
         <p className="text-xs font-black uppercase tracking-wider">{title}</p>
-        <p className="text-[11px] text-slate-600 mt-0.5">{hint}</p>
       </div>
       {items.map((item, i) => (
         <div key={`${title}-${i}`} className="flex items-start gap-2">
@@ -99,7 +96,7 @@ function ScoreList({
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
       <HintTooltip text="Pokazuje lub ukrywa opisy, które respondent widzi przy każdej liczbie na suwaku.">
         <button type="button" className="text-xs font-bold text-indigo-800 cursor-pointer" onClick={() => setOpen(!open)}>
-          {open ? 'Ukryj' : 'Pokaż'} opisy suwaka (1–11) — respondent widzi je przy ocenie
+          {open ? 'Ukryj' : 'Pokaż'} opisy suwaka (1–11)
         </button>
       </HintTooltip>
       {open && (
@@ -151,14 +148,7 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-3xl border border-dk-violet-soft p-5">
-        <h3 className="font-semibold text-base text-dk-ink">Obszary oceny (suwaki + co wpłynęło)</h3>
-        <p className="text-sm text-dk-ink/70 mt-2 leading-relaxed">
-          To jest treść, którą widzi respondent: pytania, suwak 1–11 oraz opcje
-          <strong> pozytywne / neutralne / negatywne</strong> („co wpłynęło na Twoją ocenę”).
-          Każdą pozycję możesz przepisać. Nową dopisujesz ręcznie i klikasz Dodaj.
-        </p>
-      </div>
+      <h3 className="font-semibold text-base text-dk-ink">Obszary oceny</h3>
 
       {questions.map((q, index) => (
         <article key={q.id} className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4">
@@ -266,21 +256,18 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
           <div className="grid gap-3">
             <FactorList
               title="Pozytywne"
-              hint="Widać je, gdy ocena jest wysoka — i zawsze w „inne czynniki”."
               tone="positive"
               items={q.factors.high}
               onChange={(high) => update(index, { factors: { ...q.factors, high } })}
             />
             <FactorList
               title="Neutralne"
-              hint="Środkowy zakres oceny — rzeczy do oszlifowania, bez dramatu."
               tone="neutral"
               items={q.factors.mid}
               onChange={(mid) => update(index, { factors: { ...q.factors, mid } })}
             />
             <FactorList
               title="Negatywne"
-              hint="Niski zakres — konkretne problemy, które wpłynęły na ocenę."
               tone="negative"
               items={q.factors.low}
               onChange={(low) => update(index, { factors: { ...q.factors, low } })}
@@ -296,7 +283,7 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
           className="w-full rounded-3xl border-2 border-dashed border-dk-violet/40 bg-white py-4 text-sm font-bold text-dk-violet-text hover:bg-dk-violet-soft cursor-pointer flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
-          Dodaj obszar oceny (suwaki + pozytywne / neutralne / negatywne)
+          Dodaj obszar oceny
         </button>
       </HintTooltip>
     </div>

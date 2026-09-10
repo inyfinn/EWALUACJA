@@ -4,7 +4,6 @@ import { BarChart3, Copy, ExternalLink, FileEdit, Link2, Plus } from 'lucide-rea
 import { ManagedSurvey } from '../types';
 import { deleteSurveyApi, duplicateSurveyApi, fetchSurveys, setSurveyStatusApi } from '../utils/cmsApi';
 import { fillUrl } from '../utils/routerBase';
-import { CmsHomeHint } from './CmsLayout';
 import { SurveyStatusBar } from '../components/SurveyStatusBar';
 import { HintTooltip } from '../components/HintTooltip';
 
@@ -53,13 +52,9 @@ export function SurveyListPage() {
 
   return (
     <div className="space-y-5">
-      <CmsHomeHint />
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-dk-ink">Ankiety</h2>
-          <p className="text-sm text-dk-ink/70 mt-1">
-            Twórz formularze, edytuj na żywo, publikuj linki i zbieraj wyniki na Synology.
-          </p>
         </div>
         <HintTooltip text="Otwiera kreator nowej ankiety: nazwa, szablon i zapis.">
           <Link to="/cms/new" className="btn-dk-primary text-sm py-2.5 sm:hidden">
@@ -140,7 +135,7 @@ export function SurveyListPage() {
         ))}
         {surveys.length === 0 && (
           <div className="bg-white rounded-3xl border border-dashed border-dk-violet-soft p-10 text-center text-dk-ink/50 text-sm">
-            Nie ma jeszcze ankiet. Kliknij „Nowa ankieta” i wybierz szablon.
+            Nie ma jeszcze ankiet.
           </div>
         )}
       </div>

@@ -29,7 +29,6 @@ export function CmsLayout() {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-dk-violet-text/70 hidden md:block">Tworzenie ankiet, pola, linki i wyniki</p>
             </div>
           </Link>
           <div className="flex items-center gap-2 shrink-0">
@@ -61,14 +60,6 @@ export function CmsLayout() {
         </Link>
       </HintTooltip>
       <InyfinnCopyright />
-    </div>
-  );
-}
-
-export function CmsHomeHint() {
-  return (
-    <div className="flex items-center gap-2 text-dk-violet-text text-xs mb-4 bg-dk-violet-soft/60 rounded-full px-3 py-1.5 w-fit">
-      <span>Każdy widok ma własny adres. Odświeżenie i Wstecz działają jak na zwykłej stronie.</span>
     </div>
   );
 }

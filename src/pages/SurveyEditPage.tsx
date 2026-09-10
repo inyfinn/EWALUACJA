@@ -72,12 +72,12 @@ export function SurveyEditPage() {
           />
         </label>
         <label className="block">
-          <span className="text-xs font-bold text-dk-violet-text">Opis (widać go na górze formularza)</span>
+          <span className="text-xs font-bold text-dk-violet-text">Opis</span>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 w-full rounded-2xl border border-dk-violet-soft px-3 py-2 text-sm min-h-[80px]" />
         </label>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-xs font-bold text-dk-violet-text">Fragment adresu (/s/…)</span>
+            <span className="text-xs font-bold text-dk-violet-text">Adres (/s/…)</span>
             <input value={slug} onChange={(e) => setSlug(e.target.value)} className="mt-1 w-full rounded-2xl border border-dk-violet-soft px-3 py-2 text-sm font-mono" />
           </label>
           <label className="block">
@@ -85,10 +85,9 @@ export function SurveyEditPage() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
-              title="Opublikowana przyjmuje odpowiedzi. Szkic i wstrzymana nie."
               className="mt-1 w-full rounded-2xl border border-dk-violet-soft px-3 py-2 text-sm"
             >
-              <option value="live">Opublikowana (można wypełniać)</option>
+              <option value="live">Opublikowana</option>
               <option value="draft">Szkic</option>
               <option value="closed">Wstrzymana</option>
             </select>
@@ -99,8 +98,7 @@ export function SurveyEditPage() {
       <EvalQuestionsEditor questions={questions} onChange={setQuestions} />
 
       <div>
-        <h3 className="font-semibold text-base mb-3">Dodatkowe pola (poza suwakami)</h3>
-        <p className="text-sm text-dk-ink/70 mb-3">Krótki tekst, wybór, tak/nie — widać je od razu poniżej. Opcje dopisujesz osobno, nie przecinkami.</p>
+        <h3 className="font-semibold text-base mb-3">Dodatkowe pola</h3>
         <LiveSurveyEditor fields={fields} onChange={setFields} />
       </div>
 
