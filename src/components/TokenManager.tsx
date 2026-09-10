@@ -587,7 +587,7 @@ Dziękuję za Twój czas i pomoc!`;
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     {/* Exclude / Include toggle for used survey */}
                     {token.used && linkedResponse && (
                       <button
@@ -664,7 +664,7 @@ Dziękuję za Twój czas i pomoc!`;
                         title="Otwórz i przetestuj ankietę bezpośrednio w tej aplikacji (bez nowej karty)"
                       >
                         <PlayCircle className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Wypełnij w aplikacji</span>
+                        <span>Wypełnij</span>
                       </button>
                     )}
 

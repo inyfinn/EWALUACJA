@@ -15,8 +15,8 @@ export function CmsLayout() {
   return (
     <div className="min-h-screen bg-dk-bg text-dk-ink font-sans antialiased flex flex-col">
       <header className="bg-white/90 backdrop-blur border-b border-dk-violet-soft sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <Link to="/cms" className="flex items-center gap-3 min-w-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 min-w-0">
+          <Link to="/cms" className="flex items-center gap-3 min-w-0 overflow-hidden">
             <DobraKaloriaMark className="h-11 w-auto max-w-[88px]" />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -28,7 +28,7 @@ export function CmsLayout() {
               <p className="text-[11px] text-dk-violet-text/70 hidden md:block">Tworzenie ankiet, pola, linki i wyniki</p>
             </div>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <NavLink to="/cms/new" className="btn-dk-primary">
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Nowa ankieta</span>
