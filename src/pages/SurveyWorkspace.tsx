@@ -9,7 +9,7 @@ import { HintTooltip } from '../components/HintTooltip';
 
 function navCardClass(active: boolean) {
   return [
-    'flex items-start gap-3 w-full min-h-[5.5rem] text-left rounded-3xl border p-4 transition-all cursor-pointer',
+    'flex items-start gap-3 w-full h-full min-h-[5.75rem] text-left rounded-3xl border p-4 transition-all cursor-pointer',
     active
       ? 'bg-white border-dk-violet/45 shadow-sm ring-2 ring-dk-violet/20'
       : 'bg-white border-dk-violet-soft hover:border-dk-violet/40 hover:shadow-sm',
@@ -51,7 +51,7 @@ export function SurveyWorkspace() {
   }
 
   const tab = (to: string, label: string, blurb: string, icon: ReactNode, hint: string) => (
-    <HintTooltip className="w-full" text={hint}>
+    <HintTooltip className="w-full h-full" text={hint}>
       <NavLink to={to} className={({ isActive }) => navCardClass(isActive)}>
         {({ isActive }) => (
           <>
@@ -116,7 +116,7 @@ export function SurveyWorkspace() {
             'Raport zbiorczy i poszczególne odpowiedzi.',
           )}
           <HintTooltip
-            className="w-full"
+            className="w-full h-full"
             text="Otwiera ankietę tak, jak widzi ją osoba wypełniająca. To tylko podgląd: wynik się nie zapisze."
           >
             <a
@@ -130,7 +130,7 @@ export function SurveyWorkspace() {
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-dk-ink">Podgląd formularza</span>
                 <span className="block text-[11px] leading-snug text-dk-ink/60 mt-0.5">
-                  Otwiera się w nowej karcie. Wynik się nie zapisze.
+                  Nowa karta, wynik się nie zapisze
                 </span>
               </span>
             </a>
