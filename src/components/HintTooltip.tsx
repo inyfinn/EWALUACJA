@@ -11,6 +11,7 @@ interface HintTooltipProps {
 export function HintTooltip({ text, children, side = 'top', className = '' }: HintTooltipProps) {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
+  const ignoreFocusRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState({ left: 0, top: 0, ready: false });
 
@@ -63,8 +64,17 @@ export function HintTooltip({ text, children, side = 'top', className = '' }: Hi
       className={`${isOutOfFlow ? '' : 'relative'} inline-flex ${extra}`}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      onMouseDown={() => setOpen(false)}
-      onFocusCapture={() => setOpen(true)}
+      onMouseDown={() => {
+        ignoreFocusRef.current = true;
+        setOpen(false);
+      }}
+      onFocusCapture={() => {
+        if (ignoreFocusRef.current) {
+          ignoreFocusRef.current = false;
+          return;
+        }
+        setOpen(true);
+      }}
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false);
       }}
