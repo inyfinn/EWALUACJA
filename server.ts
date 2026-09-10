@@ -114,8 +114,8 @@ function default360Survey(): ManagedSurvey {
   return {
     id: DEFAULT_SURVEY_ID,
     slug: 'ewaluacja-pracownika',
-    title: 'Ewaluacja pracownika',
-    description: 'Anonimowa ewaluacja pracownika: komunikacja, terminowość, jakość, wkład własny.',
+    title: 'Ewaluacja Krzysztofa Wieczorka',
+    description: 'Anonimowa ewaluacja Krzysztofa Wieczorka: komunikacja, terminowość, jakość, wkład własny.',
     status: 'live',
     engine: '360',
     fields: [],
@@ -158,12 +158,15 @@ function migrateStore(parsed: any): StoreData {
     store.surveys = [default360Survey()];
   }
   store.surveys.forEach((s) => {
-    if (/360/.test(s.title || '')) {
-      s.title = 'Ewaluacja pracownika';
+    const genericName = !s.title
+      || s.title === 'Ewaluacja pracownika'
+      || /360/.test(s.title);
+    if ((s.engine === '360' || s.id === DEFAULT_SURVEY_ID) && genericName) {
+      s.title = 'Ewaluacja Krzysztofa Wieczorka';
     }
     if (!s.description || /360/.test(s.description)) {
       if (s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /360/.test(s.slug || '')) {
-        s.description = 'Anonimowa ewaluacja pracownika: komunikacja, terminowość, jakość, wkład własny.';
+        s.description = 'Anonimowa ewaluacja Krzysztofa Wieczorka: komunikacja, terminowość, jakość, wkład własny.';
       }
     }
     if ((!s.questions || !s.questions.length) && (s.engine === '360' || s.id === DEFAULT_SURVEY_ID)) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, ArrowRight, Eye, EyeOff, KeyRound, AlertCircle } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Eye, EyeOff, KeyRound, AlertCircle } from 'lucide-react';
+import { DobraKaloriaMark } from './DobraKaloriaMark';
 
 interface AdminLoginViewProps {
   onSuccess: () => void;
@@ -35,8 +36,8 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
-        <div className="w-14 h-14 bg-dk-green text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-          <Lock className="w-7 h-7 text-amber-400" />
+        <div className="flex justify-center mb-4">
+          <DobraKaloriaMark className="h-16 w-16" />
         </div>
 
         <div className="text-center mb-6">

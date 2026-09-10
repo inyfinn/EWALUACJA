@@ -34,12 +34,12 @@ export interface SurveyTemplate {
 export const SURVEY_TEMPLATES: SurveyTemplate[] = [
   {
     id: 'tpl_ewaluacja_360',
-    title: 'Ewaluacja pracownika',
+    title: 'Ewaluacja Krzysztofa Wieczorka',
     blurb: 'Pełna ocena konkretnej osoby: komunikacja, terminowość, jakość i wkład własny.',
     subject: 'person',
     subjectLabel: 'Jedna osoba',
     engine: '360',
-    description: 'Anonimowa ewaluacja pracownika — cztery obszary współpracy w zespole.',
+    description: 'Anonimowa ewaluacja Krzysztofa Wieczorka — cztery obszary współpracy w zespole.',
     fields: [],
     questions: cloneQuestions(),
   },

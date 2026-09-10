@@ -326,7 +326,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 tracking-tight">
-            {heading || 'Ewaluacja pracownika'}
+            {heading || 'Ewaluacja Krzysztofa Wieczorka'}
           </h1>
           <p className="text-slate-600 sm:text-lg mb-8 leading-relaxed max-w-2xl">
             {intro || 'Witaj w bezpiecznym panelu oceny. Twoje odpowiedzi pomogą nam lepiej rozwijać zespół. Ankieta jest w 100% anonimowa.'}

@@ -62,7 +62,7 @@ export function NewSurveyPage() {
       <div>
         <h2 className="text-2xl font-black tracking-tight">Nowa ankieta</h2>
         <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          Najpierw <strong>nazywasz ankietę</strong> (np. „Ewaluacja pracownika — marzec”). Potem wybierasz gotowy zestaw pytań
+          Najpierw <strong>nazywasz ankietę</strong> (np. „Ewaluacja Krzysztofa Wieczorka”). Tag po lewej i tak pokazuje, że to ewaluacja pracownika. Potem wybierasz gotowy zestaw pytań
           albo kopiujesz już zapisaną. Na następnym ekranie edytujesz całą treść tak, jak ją widzi respondent — w tym opcje pozytywne, neutralne i negatywne.
         </p>
       </div>
@@ -70,7 +70,7 @@ export function NewSurveyPage() {
       <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 text-sm text-indigo-950 space-y-2 leading-relaxed">
         <p className="font-black">Kolejność — nic nie zgadujesz:</p>
         <ol className="list-decimal list-inside space-y-1">
-          <li>Wpisz nazwę (np. „Ewaluacja pracownika — marzec”). Bez tego przycisk na dole jest nieaktywny.</li>
+          <li>Wpisz nazwę osoby (np. „Ewaluacja Krzysztofa Wieczorka”). Bez tego przycisk na dole jest nieaktywny.</li>
           <li>Wybierz rodzaj ankiety albo „zrób kopię” już zapisanej.</li>
           <li>Otworzy się podgląd na żywo: klikasz w treść pytania i zmieniasz. Opcje dodajesz przyciskiem, nie przecinkami.</li>
           <li>Zapisz. Potem w zakładce Linki rozsyłasz wypełnianie.</li>
@@ -83,7 +83,7 @@ export function NewSurveyPage() {
           value={title}
           onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
           className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold"
-          placeholder="np. Ewaluacja pracownika — marzec 2026"
+          placeholder="np. Ewaluacja Krzysztofa Wieczorka"
           required
           minLength={2}
         />
