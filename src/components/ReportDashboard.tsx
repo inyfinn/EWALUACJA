@@ -215,7 +215,7 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
           <div className="md:col-span-2 lg:col-span-3 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Głosy Współpracowników
+                Głosy ankietowanych
               </span>
               <Users className="w-4 h-4 text-slate-600" />
             </div>
@@ -337,7 +337,7 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-slate-900 text-sm">
-                            {token?.label || `Współpracownik (${resp.tokenUsed})`}
+                            {token?.label || `Ankietowany (${resp.tokenUsed})`}
                           </span>
                           <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
                             kod: {resp.tokenUsed}

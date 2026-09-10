@@ -17,6 +17,17 @@ export async function loginWithPassword(password: string): Promise<{ token: stri
   return data;
 }
 
+export interface CmsPanel {
+  id: string;
+  name: string;
+}
+
+export async function fetchPanels(): Promise<CmsPanel[]> {
+  const res = await fetch(apiUrl('api/panels'), { headers: authHeaders(false) });
+  if (!res.ok) throw new Error('Nie udało się pobrać listy osób z panelem.');
+  return res.json();
+}
+
 export async function fetchSurveys(): Promise<ManagedSurvey[]> {
   const res = await fetch(apiUrl('api/surveys'), { headers: authHeaders(false) });
   if (!res.ok) throw new Error('Nie udało się pobrać listy ankiet.');

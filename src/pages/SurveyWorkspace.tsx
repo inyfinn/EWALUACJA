@@ -73,7 +73,7 @@ export function SurveyWorkspace() {
       </div>
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {tab('edit', 'Treść ankiety', <FileEdit className="w-4 h-4" />, 'Pytania, opis i ustawienia tej ankiety.')}
-        {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />, 'Twórz unikalne kody, kopiuj zaproszenia i sprawdzaj kto już wypełnił.')}
+        {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />, 'Osoby z dostępem do panelu, unikalne linki ankietowanych i status wypełnień.')}
         {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />, 'Raport zbiorczy i poszczególne odpowiedzi.')}
         <HintTooltip text="Otwiera formularz tak, jak widzi go respondent. Do wysłania potrzebny jest kod z zakładki Zarządzaj.">
           <a

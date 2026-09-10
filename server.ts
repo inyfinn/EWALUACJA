@@ -321,6 +321,10 @@ function ownedSurveys(store: StoreData, panelId: string) {
   return store.surveys.filter((s) => canAccessSurvey(s, panelId));
 }
 
+function publicPanels() {
+  return PANELS.map((p) => ({ id: p.id, name: p.name }));
+}
+
 app.post('/api/auth/login', (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   const panel = panelByPassword(password);
@@ -350,6 +354,12 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/panels', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  res.json(publicPanels());
 });
 
 function isPreviewCode(code: string) {
@@ -589,6 +599,17 @@ app.put('/api/surveys/:id', (req, res) => {
   if (typeof body.slug === 'string' && body.slug.trim()) {
     survey.slug = uniqueSlug(store, body.slug, survey.id);
   }
+  if (Array.isArray(body.ownerIds)) {
+    const allowed = new Set<string>(PANELS.map((p) => p.id));
+    const ids: string[] = [];
+    for (const raw of body.ownerIds) {
+      if (typeof raw === 'string' && allowed.has(raw) && !ids.includes(raw)) ids.push(raw);
+    }
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'Ankieta musi mieć przynajmniej jedną osobę z dostępem do panelu.' });
+    }
+    survey.ownerIds = ids;
+  }
   survey.updatedAt = new Date().toISOString();
   writeStore(store);
   res.json(survey);
@@ -755,7 +776,7 @@ app.post('/api/tokens', (req, res) => {
   const newToken: VoterToken = {
     id: `token_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     code,
-    label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Współpracownik ${scopedCount + 1}`,
+    label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Ankietowany ${scopedCount + 1}`,
     used: false,
     surveyId: resolvedSurveyId,
     test: Boolean(test),

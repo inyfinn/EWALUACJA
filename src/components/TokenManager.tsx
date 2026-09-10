@@ -57,14 +57,14 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
 
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addCustomTokenAsync(newLabel.trim() || `Współpracownik ${tokens.length + 1}`, surveyId, createAsTest);
+    await addCustomTokenAsync(newLabel.trim() || `Ankietowany ${tokens.length + 1}`, surveyId, createAsTest);
     setNewLabel('');
     onTokensUpdated();
   };
 
   const handleBatch = async (count: number) => {
     for (let i = 0; i < count; i++) {
-      await addCustomTokenAsync(`Współpracownik ${tokens.length + i + 1}`, surveyId, createAsTest);
+      await addCustomTokenAsync(`Ankietowany ${tokens.length + i + 1}`, surveyId, createAsTest);
     }
     onTokensUpdated();
   };
@@ -164,11 +164,12 @@ Dziękuję za Twój czas i pomoc!`;
               <span className="text-xs text-dk-ink/50">Kubara Sp. z o.o.</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-dk-ink">
-              Unikalne linki z ankietą dla współpracowników
+              Unikalne linki dla ankietowanych
             </h2>
             <p className="text-sm text-dk-ink/70 mt-2 leading-relaxed max-w-[65ch]">
-              Każdy współpracownik otrzymuje swój <strong>indywidualny link</strong>.
+              Każdy ankietowany dostaje swój <strong>indywidualny link</strong> do wypełnienia.
               Gdy wyśle odpowiedzi, link zostaje oznaczony jako wypełniony, a wynik trafia do raportu.
+              To nie daje dostępu do Panelu Ankiet.
             </p>
           </div>
 
@@ -220,7 +221,7 @@ Dziękuję za Twój czas i pomoc!`;
               type="text"
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
-              placeholder="Nazwa współpracownika (np. Dział Logistyki, Jan Kowalski)..."
+              placeholder="Nazwa ankietowanego (np. Dział Logistyki, Jan Kowalski)..."
                 className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
             />
             <HintTooltip text="Włącza tryb testowy: wynik z tego linku nie wlicza się do raportu.">
@@ -241,20 +242,20 @@ Dziękuję za Twój czas i pomoc!`;
                 <span className="text-xs font-semibold text-dk-ink">Link testowy</span>
               </button>
             </HintTooltip>
-            <HintTooltip text="Tworzy jeden nowy unikalny kod i link dla tej osoby.">
+            <HintTooltip text="Tworzy nowy unikalny link do wypełnienia. Ta osoba nie dostaje dostępu do panelu.">
               <button
                 type="submit"
                 className="btn-dk-primary shrink-0"
               >
                 <Plus className="w-4 h-4" />
-                <span>Dodaj osobę</span>
+                <span>Dodaj ankietowanego (nowy link)</span>
               </button>
             </HintTooltip>
           </form>
 
           <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
             <span className="text-xs text-slate-500 font-medium">Generuj pakiet:</span>
-            <HintTooltip text="Dodaje od razu trzy puste zaproszenia z kolejnymi kodami.">
+            <HintTooltip text="Dodaje od razu trzy nowe linki do wypełnienia.">
               <button
                 type="button"
                 onClick={() => handleBatch(3)}
@@ -263,7 +264,7 @@ Dziękuję za Twój czas i pomoc!`;
                 +3 linki
               </button>
             </HintTooltip>
-            <HintTooltip text="Dodaje od razu pięć pustych zaproszeń z kolejnymi kodami.">
+            <HintTooltip text="Dodaje od razu pięć nowych linków do wypełnienia.">
               <button
                 type="button"
                 onClick={() => handleBatch(5)}
@@ -322,9 +323,9 @@ Dziękuję za Twój czas i pomoc!`;
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
         <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania współpracownikom</h3>
+            <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania ankietowanym</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Kliknij „Kopiuj Zaproszenie” i wklej współpracownikowi (na Teams, Slack, mailu lub SMS).
+              Kliknij „Kopiuj Zaproszenie” i wklej osobie, która ma wypełnić ankietę (Teams, Slack, mail lub SMS).
             </p>
           </div>
           <span className="text-xs font-bold text-slate-400">Łącznie: {tokens.length}</span>
@@ -334,7 +335,7 @@ Dziękuję za Twój czas i pomoc!`;
           <div className="p-8 text-center text-slate-400">
             <KeyRound className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm font-semibold text-slate-600">Brak wygenerowanych linków.</p>
-            <p className="text-xs text-slate-400 mt-1">Kliknij powyżej przycisk „+3 linki” lub wpisz nazwę współpracownika.</p>
+            <p className="text-xs text-slate-400 mt-1">Wpisz nazwę ankietowanego albo kliknij „Dodaj ankietowanego (nowy link)”.</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -357,7 +358,7 @@ Dziękuję za Twój czas i pomoc!`;
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-slate-900 text-sm">
-                          {token.label || `Współpracownik ${idx + 1}`}
+                          {token.label || `Ankietowany ${idx + 1}`}
                         </span>
                         <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
                           kod: {token.code}

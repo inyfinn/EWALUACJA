@@ -1,11 +1,12 @@
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { TokenManager } from '../components/TokenManager';
+import { SurveyCollaborators } from '../components/SurveyCollaborators';
 import { ManagedSurvey, SurveyResponse, VoterToken } from '../types';
 import { fetchResponsesFromServer, fetchTokensFromServer } from '../utils/surveyStorage';
 
 export function SurveyLinksPage() {
-  const { survey } = useOutletContext<{ survey: ManagedSurvey }>();
+  const { survey, reload } = useOutletContext<{ survey: ManagedSurvey; reload: () => Promise<void> }>();
   const navigate = useNavigate();
   const [tokens, setTokens] = useState<VoterToken[]>([]);
   const [responses, setResponses] = useState<SurveyResponse[]>([]);
@@ -26,13 +27,16 @@ export function SurveyLinksPage() {
   }, [survey.id]);
 
   return (
-    <TokenManager
-      tokens={tokens}
-      responses={responses}
-      surveyId={survey.id}
-      surveySlug={survey.slug}
-      onTokensUpdated={refresh}
-      onSelectTokenToFill={(code) => navigate(`/s/${survey.slug}?token=${encodeURIComponent(code)}`)}
-    />
+    <div className="space-y-6">
+      <SurveyCollaborators survey={survey} onUpdated={reload} />
+      <TokenManager
+        tokens={tokens}
+        responses={responses}
+        surveyId={survey.id}
+        surveySlug={survey.slug}
+        onTokensUpdated={refresh}
+        onSelectTokenToFill={(code) => navigate(`/s/${survey.slug}?token=${encodeURIComponent(code)}`)}
+      />
+    </div>
   );
 }

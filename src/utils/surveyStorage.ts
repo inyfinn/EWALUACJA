@@ -324,7 +324,7 @@ export function addCustomToken(label: string, test = false): VoterToken {
   const newToken: VoterToken = {
     id: `token_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     code: generateTokenCode(tokens.length),
-    label: label.trim() || `Współpracownik ${tokens.length + 1}`,
+    label: label.trim() || `Ankietowany ${tokens.length + 1}`,
     used: false,
     test: test || undefined,
   };
@@ -361,7 +361,7 @@ export function validateTokenCode(code: string, currentTokens?: VoterToken[]): {
     return { valid: false, used: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź czy wpisałeś poprawny kod z wiadomości.' };
   }
   if (found.used) {
-    return { valid: true, used: true, label: found.label, token: found, error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każdy współpracownik może wypełnić ankietę tylko 1 raz.' };
+    return { valid: true, used: true, label: found.label, token: found, error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każdy ankietowany może wypełnić ankietę tylko 1 raz.' };
   }
   return { valid: true, used: false, label: found.label, token: found };
 }
