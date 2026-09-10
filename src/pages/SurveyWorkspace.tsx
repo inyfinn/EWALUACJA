@@ -7,6 +7,22 @@ import { fillUrl } from '../utils/routerBase';
 import { SurveyStatusBar } from '../components/SurveyStatusBar';
 import { HintTooltip } from '../components/HintTooltip';
 
+function navCardClass(active: boolean) {
+  return [
+    'flex items-start gap-3 w-full min-h-[5.5rem] text-left rounded-3xl border p-4 transition-all cursor-pointer',
+    active
+      ? 'bg-white border-dk-violet/45 shadow-sm ring-2 ring-dk-violet/20'
+      : 'bg-white border-dk-violet-soft hover:border-dk-violet/40 hover:shadow-sm',
+  ].join(' ');
+}
+
+function navIconClass(active: boolean) {
+  return [
+    'w-11 h-11 rounded-2xl flex items-center justify-center shrink-0',
+    active ? 'bg-dk-violet-soft text-dk-violet-text' : 'bg-dk-bg text-dk-ink/70',
+  ].join(' ');
+}
+
 export function SurveyWorkspace() {
   const { surveyId } = useParams();
   const navigate = useNavigate();
@@ -34,18 +50,20 @@ export function SurveyWorkspace() {
     return <div className="text-slate-500 text-sm">Wczytywanie ankiety…</div>;
   }
 
-  const tab = (to: string, label: string, icon: ReactNode, hint: string) => (
-    <HintTooltip text={hint}>
-      <NavLink
-        to={to}
-        className={({ isActive }) =>
-          `py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 whitespace-nowrap ${
-            isActive ? 'bg-dk-violet-soft text-dk-violet-text' : 'text-dk-ink/70 hover:bg-white'
-          }`
-        }
-      >
-        {icon}
-        {label}
+  const tab = (to: string, label: string, blurb: string, icon: ReactNode, hint: string) => (
+    <HintTooltip className="w-full" text={hint}>
+      <NavLink to={to} className={({ isActive }) => navCardClass(isActive)}>
+        {({ isActive }) => (
+          <>
+            <span className={navIconClass(isActive)}>{icon}</span>
+            <span className="min-w-0">
+              <span className={`block text-sm font-semibold ${isActive ? 'text-dk-violet-text' : 'text-dk-ink'}`}>
+                {label}
+              </span>
+              <span className="block text-[11px] leading-snug text-dk-ink/60 mt-0.5">{blurb}</span>
+            </span>
+          </>
+        )}
       </NavLink>
     </HintTooltip>
   );
@@ -70,20 +88,56 @@ export function SurveyWorkspace() {
         </div>
         <p className="text-xs text-slate-500 font-mono mt-1 break-all">{fillUrl(survey.slug)}</p>
       </div>
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {tab('edit', 'Treść ankiety', <FileEdit className="w-4 h-4" />, 'Pytania, opis i ustawienia tej ankiety.')}
-        {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />, 'Osoby z dostępem do panelu, unikalne linki ankietowanych i status wypełnień.')}
-        {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />, 'Raport zbiorczy i poszczególne odpowiedzi.')}
-        <HintTooltip text="Otwiera ankietę tak, jak widzi ją osoba wypełniająca. To tylko podgląd: wynik się nie zapisze. Prawdziwe odpowiedzi zbierasz unikalnym linkiem z zakładki Zarządzaj.">
-          <a
-            href={fillUrl(survey.slug, 'PODGLAD')}
-            target="_blank"
-            className="py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 text-dk-ink/70 hover:bg-white"
+
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-dk-ink/50 mb-2">
+          Przełącz widok tej ankiety
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          {tab(
+            'edit',
+            'Treść ankiety',
+            'Pytania, opis i ustawienia',
+            <FileEdit className="w-5 h-5" />,
+            'Otwiera edycję pytań, opisu i ustawień tej ankiety.',
+          )}
+          {tab(
+            'links',
+            'Zarządzaj',
+            'Osoby, linki i zaproszenia',
+            <Link2 className="w-5 h-5" />,
+            'Osoby z dostępem do panelu, unikalne linki ankietowanych i status wypełnień.',
+          )}
+          {tab(
+            'results',
+            'Wyniki',
+            'Raport i odpowiedzi',
+            <BarChart3 className="w-5 h-5" />,
+            'Raport zbiorczy i poszczególne odpowiedzi.',
+          )}
+          <HintTooltip
+            className="w-full"
+            text="Otwiera ankietę tak, jak widzi ją osoba wypełniająca. To tylko podgląd: wynik się nie zapisze."
           >
-            <ExternalLink className="w-4 h-4" /> Podgląd formularza
-          </a>
-        </HintTooltip>
+            <a
+              href={fillUrl(survey.slug, 'PODGLAD')}
+              target="_blank"
+              className={navCardClass(false)}
+            >
+              <span className={navIconClass(false)}>
+                <ExternalLink className="w-5 h-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-dk-ink">Podgląd formularza</span>
+                <span className="block text-[11px] leading-snug text-dk-ink/60 mt-0.5">
+                  Otwiera się w nowej karcie. Wynik się nie zapisze.
+                </span>
+              </span>
+            </a>
+          </HintTooltip>
+        </div>
       </div>
+
       <Outlet context={{ survey, reload }} />
     </div>
   );
