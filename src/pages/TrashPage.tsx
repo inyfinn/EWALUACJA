@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TrashStore } from '../types';
 import { emptyTrashResponse, emptyTrashSurvey, fetchTrash, restoreResponseApi, restoreSurveyApi } from '../utils/cmsApi';
+import { HintTooltip } from '../components/HintTooltip';
 
 export function TrashPage() {
   const [trash, setTrash] = useState<TrashStore>({ surveys: [], responses: [] });
@@ -42,28 +43,32 @@ export function TrashPage() {
               <div className="text-[11px] text-slate-500">Usunięto {new Date(item.deletedAt).toLocaleString('pl-PL')}</div>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn-dk-primary"
-                onClick={async () => {
-                  await restoreSurveyApi(item.survey.id);
-                  setNotice(`Przywrócono ankietę „${item.survey.title}” wraz z jej odpowiedziami z kosza.`);
-                  await load();
-                }}
-              >
-                Przywróć
-              </button>
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
-                onClick={async () => {
-                  if (!window.confirm('Usunąć na stałe z kosza?')) return;
-                  await emptyTrashSurvey(item.survey.id);
-                  await load();
-                }}
-              >
-                Usuń na zawsze
-              </button>
+              <HintTooltip text="Wraca ankietę na listę razem z odpowiedziami, które były w koszu.">
+                <button
+                  type="button"
+                  className="btn-dk-primary"
+                  onClick={async () => {
+                    await restoreSurveyApi(item.survey.id);
+                    setNotice(`Przywrócono ankietę „${item.survey.title}” wraz z jej odpowiedziami z kosza.`);
+                    await load();
+                  }}
+                >
+                  Przywróć
+                </button>
+              </HintTooltip>
+              <HintTooltip text="Kasuje ankietę z kosza na stałe. Tego nie da się cofnąć.">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
+                  onClick={async () => {
+                    if (!window.confirm('Usunąć na stałe z kosza?')) return;
+                    await emptyTrashSurvey(item.survey.id);
+                    await load();
+                  }}
+                >
+                  Usuń na zawsze
+                </button>
+              </HintTooltip>
             </div>
           </div>
         ))}
@@ -81,34 +86,40 @@ export function TrashPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn-dk-primary"
-                onClick={async () => {
-                  const result = await restoreResponseApi(item.response.id);
-                  setNotice(result.message);
-                  await load();
-                }}
-              >
-                Przywróć
-              </button>
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
-                onClick={async () => {
-                  if (!window.confirm('Usunąć tę odpowiedź na zawsze?')) return;
-                  await emptyTrashResponse(item.response.id);
-                  await load();
-                }}
-              >
-                Usuń na zawsze
-              </button>
+              <HintTooltip text="Oddaje tę odpowiedź do ankiety. Jeśli ankiety nie ma, wróci jako zarchiwizowana.">
+                <button
+                  type="button"
+                  className="btn-dk-primary"
+                  onClick={async () => {
+                    const result = await restoreResponseApi(item.response.id);
+                    setNotice(result.message);
+                    await load();
+                  }}
+                >
+                  Przywróć
+                </button>
+              </HintTooltip>
+              <HintTooltip text="Kasuje tę odpowiedź z kosza na stałe.">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
+                  onClick={async () => {
+                    if (!window.confirm('Usunąć tę odpowiedź na zawsze?')) return;
+                    await emptyTrashResponse(item.response.id);
+                    await load();
+                  }}
+                >
+                  Usuń na zawsze
+                </button>
+              </HintTooltip>
             </div>
           </div>
         ))}
       </section>
 
-      <Link to="/cms" className="text-xs font-bold text-indigo-700">← Wróć do ankiet</Link>
+      <HintTooltip text="Wraca do listy ankiet.">
+        <Link to="/cms" className="text-xs font-bold text-indigo-700">← Wróć do ankiet</Link>
+      </HintTooltip>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Pause, Play, Trash2 } from 'lucide-react';
 import { ManagedSurvey } from '../types';
+import { HintTooltip } from './HintTooltip';
 
 export function statusLabel(survey: ManagedSurvey) {
   if (survey.archived) return 'Zarchiwizowana';
@@ -29,18 +30,24 @@ export function SurveyStatusBar({ survey, onPublish, onPause, onDelete }: Props)
         {statusLabel(survey)}
       </span>
       {survey.status !== 'live' && (
-        <button type="button" className="btn-dk-primary !px-2.5 !py-1" onClick={onPublish} title="Publikuj">
-          <Play className="w-3 h-3" /> Publikuj
-        </button>
+        <HintTooltip text="Udostępnia ankietę. Osoby z unikalnym linkiem mogą ją wypełnić.">
+          <button type="button" className="btn-dk-primary !px-2.5 !py-1" onClick={onPublish}>
+            <Play className="w-3 h-3" /> Publikuj
+          </button>
+        </HintTooltip>
       )}
       {survey.status === 'live' && (
-        <button type="button" className="btn-dk-ghost !px-2.5 !py-1" onClick={onPause} title="Wstrzymaj">
-          <Pause className="w-3 h-3" /> Wstrzymaj
-        </button>
+        <HintTooltip text="Zatrzymuje zbieranie. Linki zostają, ale nikt nie wyśle nowej odpowiedzi.">
+          <button type="button" className="btn-dk-ghost !px-2.5 !py-1" onClick={onPause}>
+            <Pause className="w-3 h-3" /> Wstrzymaj
+          </button>
+        </HintTooltip>
       )}
-      <button type="button" className="btn-dk-danger !px-2.5 !py-1" onClick={onDelete} title="Usuń do kosza">
-        <Trash2 className="w-3 h-3" /> Usuń
-      </button>
+      <HintTooltip text="Przenosi ankietę i jej odpowiedzi do kosza. Da się je potem przywrócić.">
+        <button type="button" className="btn-dk-danger !px-2.5 !py-1" onClick={onDelete}>
+          <Trash2 className="w-3 h-3" /> Usuń
+        </button>
+      </HintTooltip>
     </div>
   );
 }

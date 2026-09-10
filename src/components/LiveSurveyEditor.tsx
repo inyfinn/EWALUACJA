@@ -1,6 +1,7 @@
 import { SurveyField, SurveyFieldType } from '../types';
 import { newField } from '../utils/cmsApi';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { HintTooltip } from './HintTooltip';
 
 const FIELD_TYPES: { id: SurveyFieldType; label: string; hint: string }[] = [
   { id: 'short_text', label: 'Krótka odpowiedź', hint: 'Jedna linia, np. nazwa firmy' },
@@ -60,9 +61,15 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
               {FIELD_TYPES.find((t) => t.id === field.type)?.label}
             </span>
             <div className="flex items-center gap-1">
-              <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, -1)}><ChevronUp className="w-4 h-4" /></button>
-              <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, 1)}><ChevronDown className="w-4 h-4" /></button>
-              <button type="button" className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer" onClick={() => onChange(fields.filter((f) => f.id !== field.id))}><Trash2 className="w-4 h-4" /></button>
+              <HintTooltip text="Przesuwa to pytanie wyżej na liście.">
+                <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, -1)}><ChevronUp className="w-4 h-4" /></button>
+              </HintTooltip>
+              <HintTooltip text="Przesuwa to pytanie niżej na liście.">
+                <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, 1)}><ChevronDown className="w-4 h-4" /></button>
+              </HintTooltip>
+              <HintTooltip text="Usuwa to pytanie z ankiety.">
+                <button type="button" className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer" onClick={() => onChange(fields.filter((f) => f.id !== field.id))}><Trash2 className="w-4 h-4" /></button>
+              </HintTooltip>
             </div>
           </div>
 
@@ -121,18 +128,22 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
                     }}
                     className="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-sm"
                   />
-                  <button
-                    type="button"
-                    className="text-rose-600 text-xs font-bold cursor-pointer"
-                    onClick={() => update(field.id, { options: (field.options || []).filter((_, i) => i !== oi) })}
-                  >
-                    Usuń
-                  </button>
+                  <HintTooltip text="Kasuje tę jedną odpowiedź do wyboru.">
+                    <button
+                      type="button"
+                      className="text-rose-600 text-xs font-bold cursor-pointer"
+                      onClick={() => update(field.id, { options: (field.options || []).filter((_, i) => i !== oi) })}
+                    >
+                      Usuń
+                    </button>
+                  </HintTooltip>
                 </div>
               ))}
-              <button type="button" onClick={() => addOption(field)} className="text-xs font-bold text-indigo-700 cursor-pointer">
-                + Dodaj opcję (osobny przycisk, nie przecinek)
-              </button>
+              <HintTooltip text="Dopisuje kolejną pozycję na liście do wyboru. Każda osobno, nie przecinkami.">
+                <button type="button" onClick={() => addOption(field)} className="text-xs font-bold text-indigo-700 cursor-pointer">
+                  + Dodaj opcję (osobny przycisk, nie przecinek)
+                </button>
+              </HintTooltip>
             </div>
           )}
         </article>
@@ -142,15 +153,17 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
         <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Dodaj pytanie — od razu widać je powyżej</p>
         <div className="flex flex-wrap gap-2">
           {FIELD_TYPES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              title={t.hint}
-              onClick={() => onChange([...fields, newField(t.id)])}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 cursor-pointer"
-            >
-              {t.label}
-            </button>
+            <span key={t.id} className="inline-flex">
+            <HintTooltip text={t.hint}>
+              <button
+                type="button"
+                onClick={() => onChange([...fields, newField(t.id)])}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 cursor-pointer"
+              >
+                {t.label}
+              </button>
+            </HintTooltip>
+            </span>
           ))}
         </div>
       </div>

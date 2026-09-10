@@ -5,6 +5,7 @@ import { createTemplateApi, updateSurveyApi } from '../utils/cmsApi';
 import { LiveSurveyEditor } from '../components/LiveSurveyEditor';
 import { EvalQuestionsEditor } from '../components/EvalQuestionsEditor';
 import { resolveSurveyQuestions } from '../data/surveyQuestions';
+import { HintTooltip } from '../components/HintTooltip';
 
 export function SurveyEditPage() {
   const { survey, reload } = useOutletContext<{ survey: ManagedSurvey; reload: () => Promise<void> }>();
@@ -81,7 +82,12 @@ export function SurveyEditPage() {
           </label>
           <label className="block">
             <span className="text-xs font-bold text-dk-violet-text">Status</span>
-            <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="mt-1 w-full rounded-2xl border border-dk-violet-soft px-3 py-2 text-sm">
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              title="Opublikowana przyjmuje odpowiedzi. Szkic i wstrzymana nie."
+              className="mt-1 w-full rounded-2xl border border-dk-violet-soft px-3 py-2 text-sm"
+            >
               <option value="live">Opublikowana (można wypełniać)</option>
               <option value="draft">Szkic</option>
               <option value="closed">Wstrzymana</option>
@@ -99,15 +105,21 @@ export function SurveyEditPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={save} disabled={busy || !named} className="btn-dk-primary px-6 py-3 text-sm disabled:opacity-40">
-          {busy ? 'Zapisywanie…' : named ? 'Zapisz ankietę' : 'Wpisz nazwę, żeby zapisać'}
-        </button>
-        <button type="button" onClick={() => saveAsTemplate('global')} disabled={busy || !named} className="btn-dk-ghost px-4 py-3 text-sm disabled:opacity-40">
-          Utwórz szablon globalny
-        </button>
-        <button type="button" onClick={() => saveAsTemplate('private')} disabled={busy || !named} className="btn-dk-soft px-4 py-3 text-sm disabled:opacity-40">
-          Utwórz szablon prywatny
-        </button>
+        <HintTooltip text="Zapisuje nazwę, opis, adres i pytania na serwerze.">
+          <button type="button" onClick={save} disabled={busy || !named} className="btn-dk-primary px-6 py-3 text-sm disabled:opacity-40">
+            {busy ? 'Zapisywanie…' : named ? 'Zapisz ankietę' : 'Wpisz nazwę, żeby zapisać'}
+          </button>
+        </HintTooltip>
+        <HintTooltip text="Udostępnia ten zestaw pytań wszystkim panelom jako szablon startowy.">
+          <button type="button" onClick={() => saveAsTemplate('global')} disabled={busy || !named} className="btn-dk-ghost px-4 py-3 text-sm disabled:opacity-40">
+            Utwórz szablon globalny
+          </button>
+        </HintTooltip>
+        <HintTooltip text="Zapisuje szablon tylko dla Twojego panelu. Inne osoby go nie zobaczą.">
+          <button type="button" onClick={() => saveAsTemplate('private')} disabled={busy || !named} className="btn-dk-soft px-4 py-3 text-sm disabled:opacity-40">
+            Utwórz szablon prywatny
+          </button>
+        </HintTooltip>
       </div>
       {statusMsg && <p className="text-xs font-semibold text-dk-ink">{statusMsg}</p>}
     </div>

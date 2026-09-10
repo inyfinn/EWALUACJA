@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CmsTemplate, createSurveyApi, duplicateSurveyApi, fetchSurveys, fetchTemplates } from '../utils/cmsApi';
 import { ManagedSurvey } from '../types';
+import { HintTooltip } from '../components/HintTooltip';
 
 export function NewSurveyPage() {
   const navigate = useNavigate();
@@ -81,6 +82,7 @@ export function NewSurveyPage() {
           onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
           className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold"
           placeholder="np. Ewaluacja Krzysztofa Wieczorka"
+          title="Ta nazwa widać na liście i na formularzu. Minimum 2 znaki."
           required
           minLength={2}
         />
@@ -100,8 +102,9 @@ export function NewSurveyPage() {
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">2. Szablon globalny</p>
         <div className="grid gap-3">
           {globalTpl.map((tpl) => (
+            <div key={tpl.id}>
+            <HintTooltip className="w-full" text={`Szablon dla wszystkich paneli. ${tpl.blurb}`}>
             <button
-              key={tpl.id}
               type="button"
               onClick={() => {
                 if (!title.trim() || (selected && title.trim() === selected.title)) setTitle(tpl.title);
@@ -125,6 +128,8 @@ export function NewSurveyPage() {
               <div className="font-semibold text-slate-900 text-sm">{tpl.title}</div>
               <div className="text-xs text-slate-600 mt-1">{tpl.blurb}</div>
             </button>
+            </HintTooltip>
+            </div>
           ))}
         </div>
       </div>
@@ -134,8 +139,9 @@ export function NewSurveyPage() {
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Twoje szablony prywatne</p>
           <div className="grid gap-3">
             {privateTpl.map((tpl) => (
+              <div key={tpl.id}>
+              <HintTooltip className="w-full" text={`Szablon tylko w Twoim panelu. ${tpl.blurb}`}>
               <button
-                key={tpl.id}
                 type="button"
                 onClick={() => {
                   if (!title.trim() || (selected && title.trim() === selected.title)) setTitle(tpl.title);
@@ -154,6 +160,8 @@ export function NewSurveyPage() {
                 <div className="font-semibold text-slate-900 text-sm mt-1">{tpl.title}</div>
                 <div className="text-xs text-slate-600 mt-1">{tpl.blurb}</div>
               </button>
+              </HintTooltip>
+              </div>
             ))}
           </div>
         </div>
@@ -165,6 +173,7 @@ export function NewSurveyPage() {
           <select
             value={duplicateFrom}
             onChange={(e) => setDuplicateFrom(e.target.value)}
+            title="Zamiast szablonu skopiujesz już istniejącą ankietę i dasz jej nową nazwę."
             className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
           >
             <option value="">Nie kopiuj - użyj zestawu powyżej</option>
@@ -177,13 +186,15 @@ export function NewSurveyPage() {
 
       {error && <div className="text-sm font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">{error}</div>}
 
-      <button
-        type="submit"
-        disabled={busy || !named}
-        className="btn-dk-primary px-5 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {busy ? 'Tworzenie…' : named ? 'Utwórz i otwórz podgląd na żywo' : 'Wpisz nazwę, żeby iść dalej'}
-      </button>
+      <HintTooltip text="Zapisuje ankietę w Twoim panelu i otwiera edycję treści.">
+        <button
+          type="submit"
+          disabled={busy || !named}
+          className="btn-dk-primary px-5 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {busy ? 'Tworzenie…' : named ? 'Utwórz i otwórz podgląd na żywo' : 'Wpisz nazwę, żeby iść dalej'}
+        </button>
+      </HintTooltip>
     </form>
   );
 }

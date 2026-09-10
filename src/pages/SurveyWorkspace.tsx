@@ -5,6 +5,7 @@ import { ManagedSurvey } from '../types';
 import { deleteSurveyApi, fetchSurvey, setSurveyStatusApi } from '../utils/cmsApi';
 import { fillUrl } from '../utils/routerBase';
 import { SurveyStatusBar } from '../components/SurveyStatusBar';
+import { HintTooltip } from '../components/HintTooltip';
 
 export function SurveyWorkspace() {
   const { surveyId } = useParams();
@@ -33,24 +34,28 @@ export function SurveyWorkspace() {
     return <div className="text-slate-500 text-sm">Wczytywanie ankiety…</div>;
   }
 
-  const tab = (to: string, label: string, icon: ReactNode) => (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        `py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 whitespace-nowrap ${
-          isActive ? 'bg-dk-violet-soft text-dk-violet-text' : 'text-dk-ink/70 hover:bg-white'
-        }`
-      }
-    >
-      {icon}
-      {label}
-    </NavLink>
+  const tab = (to: string, label: string, icon: ReactNode, hint: string) => (
+    <HintTooltip text={hint}>
+      <NavLink
+        to={to}
+        className={({ isActive }) =>
+          `py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 whitespace-nowrap ${
+            isActive ? 'bg-dk-violet-soft text-dk-violet-text' : 'text-dk-ink/70 hover:bg-white'
+          }`
+        }
+      >
+        {icon}
+        {label}
+      </NavLink>
+    </HintTooltip>
   );
 
   return (
     <div className="space-y-5">
       <div>
-        <Link to="/cms" className="text-xs font-medium text-dk-violet-text hover:underline">← Wszystkie ankiety</Link>
+        <HintTooltip text="Wraca do listy wszystkich ankiet w Twoim panelu.">
+          <Link to="/cms" className="text-xs font-medium text-dk-violet-text hover:underline">← Wszystkie ankiety</Link>
+        </HintTooltip>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-1">
           <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">{survey.title}</h2>
           <SurveyStatusBar
@@ -67,15 +72,17 @@ export function SurveyWorkspace() {
         <p className="text-xs text-slate-500 font-mono mt-1 break-all">{fillUrl(survey.slug)}</p>
       </div>
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {tab('edit', 'Treść ankiety', <FileEdit className="w-4 h-4" />)}
-        {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />)}
-        {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />)}
-        <a
-          href={fillUrl(survey.slug)}
-          className="py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 text-dk-ink/70 hover:bg-white"
-        >
-          <ExternalLink className="w-4 h-4" /> Podgląd wypełniania
-        </a>
+        {tab('edit', 'Treść ankiety', <FileEdit className="w-4 h-4" />, 'Pytania, opis i ustawienia tej ankiety.')}
+        {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />, 'Twórz unikalne kody, kopiuj zaproszenia i sprawdzaj kto już wypełnił.')}
+        {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />, 'Raport zbiorczy i poszczególne odpowiedzi.')}
+        <HintTooltip text="Otwiera formularz tak, jak widzi go respondent. Do wysłania potrzebny jest kod z zakładki Zarządzaj.">
+          <a
+            href={fillUrl(survey.slug)}
+            className="py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 text-dk-ink/70 hover:bg-white"
+          >
+            <ExternalLink className="w-4 h-4" /> Podgląd wypełniania
+          </a>
+        </HintTooltip>
       </div>
       <Outlet context={{ survey, reload }} />
     </div>

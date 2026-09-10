@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LogOut, Plus, Trash2 } from 'lucide-react';
 import { DobraKaloriaMark } from '../components/DobraKaloriaMark';
 import { InyfinnCopyright } from '../components/InyfinnCopyright';
+import { HintTooltip } from '../components/HintTooltip';
 import { clearSession, getSessionPanel } from '../utils/authSession';
 
 export function CmsLayout() {
@@ -32,28 +33,33 @@ export function CmsLayout() {
             </div>
           </Link>
           <div className="flex items-center gap-2 shrink-0">
-            <NavLink to="/cms/new" className="btn-dk-primary">
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Nowa ankieta</span>
-            </NavLink>
-            <button type="button" onClick={handleLogout} className="btn-dk-ghost">
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Wyloguj</span>
-            </button>
+            <HintTooltip side="bottom" text="Otwiera kreator: nazwa, szablon i nowa ankieta w Twoim panelu.">
+              <NavLink to="/cms/new" className="btn-dk-primary">
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Nowa ankieta</span>
+              </NavLink>
+            </HintTooltip>
+            <HintTooltip side="bottom" text="Zamyka sesję. Żeby wrócić do panelu, trzeba ponownie wpisać hasło.">
+              <button type="button" onClick={handleLogout} className="btn-dk-ghost">
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Wyloguj</span>
+              </button>
+            </HintTooltip>
           </div>
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full pb-24">
         <Outlet />
       </main>
-      <Link
-        to="/cms/trash"
-        className="fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-white border border-dk-violet-soft text-dk-ink shadow-md hover:bg-dk-violet-soft flex items-center justify-center"
-        title="Kosz"
-        aria-label="Kosz"
-      >
-        <Trash2 className="w-5 h-5" />
-      </Link>
+      <HintTooltip className="fixed bottom-5 right-5 z-40" text="Kosz: przywracasz usunięte ankiety i odpowiedzi albo kasujesz je na zawsze.">
+        <Link
+          to="/cms/trash"
+          className="w-12 h-12 rounded-full bg-white border border-dk-violet-soft text-dk-ink shadow-md hover:bg-dk-violet-soft flex items-center justify-center"
+          aria-label="Kosz"
+        >
+          <Trash2 className="w-5 h-5" />
+        </Link>
+      </HintTooltip>
       <InyfinnCopyright />
     </div>
   );

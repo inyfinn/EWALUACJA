@@ -6,6 +6,7 @@ import { deleteSurveyApi, duplicateSurveyApi, fetchSurveys, setSurveyStatusApi }
 import { fillUrl } from '../utils/routerBase';
 import { CmsHomeHint } from './CmsLayout';
 import { SurveyStatusBar } from '../components/SurveyStatusBar';
+import { HintTooltip } from '../components/HintTooltip';
 
 function engineLabel(survey: ManagedSurvey) {
   if (survey.engine === '360') return 'Ewaluacja pracownika';
@@ -60,9 +61,11 @@ export function SurveyListPage() {
             Twórz formularze, edytuj na żywo, publikuj linki i zbieraj wyniki na Synology.
           </p>
         </div>
-        <Link to="/cms/new" className="btn-dk-primary text-sm py-2.5 sm:hidden">
-          <Plus className="w-4 h-4" /> Nowa ankieta
-        </Link>
+        <HintTooltip text="Otwiera kreator nowej ankiety: nazwa, szablon i zapis.">
+          <Link to="/cms/new" className="btn-dk-primary text-sm py-2.5 sm:hidden">
+            <Plus className="w-4 h-4" /> Nowa ankieta
+          </Link>
+        </HintTooltip>
       </div>
 
       {error && (
@@ -106,21 +109,31 @@ export function SurveyListPage() {
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/edit`)} className="btn-dk-primary">
-                  <FileEdit className="w-3.5 h-3.5" /> Edytuj treść
-                </button>
-                <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/links`)} className="btn-dk-soft">
-                  <Link2 className="w-3.5 h-3.5" /> Zarządzaj
-                </button>
-                <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/results`)} className="btn-dk-soft">
-                  <BarChart3 className="w-3.5 h-3.5" /> Wyniki
-                </button>
-                <button type="button" onClick={() => handleDuplicate(survey)} className="btn-dk-ghost">
-                  <Copy className="w-3.5 h-3.5" /> Duplikuj
-                </button>
-                <a href={fillUrl(survey.slug)} className="btn-dk-ghost">
-                  <ExternalLink className="w-3.5 h-3.5" /> Wypełnij
-                </a>
+                <HintTooltip text="Edycja pytań, opisu i statusu tej ankiety.">
+                  <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/edit`)} className="btn-dk-primary">
+                    <FileEdit className="w-3.5 h-3.5" /> Edytuj treść
+                  </button>
+                </HintTooltip>
+                <HintTooltip text="Unikalne linki dla osób wypełniających, kopiowanie zaproszeń i test wypełnienia.">
+                  <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/links`)} className="btn-dk-soft">
+                    <Link2 className="w-3.5 h-3.5" /> Zarządzaj
+                  </button>
+                </HintTooltip>
+                <HintTooltip text="Raport i lista odpowiedzi zapisanych na serwerze.">
+                  <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/results`)} className="btn-dk-soft">
+                    <BarChart3 className="w-3.5 h-3.5" /> Wyniki
+                  </button>
+                </HintTooltip>
+                <HintTooltip text="Tworzy kopię ankiety z tymi samymi pytaniami, bez dotychczasowych odpowiedzi.">
+                  <button type="button" onClick={() => handleDuplicate(survey)} className="btn-dk-ghost">
+                    <Copy className="w-3.5 h-3.5" /> Duplikuj
+                  </button>
+                </HintTooltip>
+                <HintTooltip text="Otwiera publiczny formularz. Bez kodu w adresie nikt nie wyśle odpowiedzi.">
+                  <a href={fillUrl(survey.slug)} className="btn-dk-ghost">
+                    <ExternalLink className="w-3.5 h-3.5" /> Wypełnij
+                  </a>
+                </HintTooltip>
               </div>
             </div>
           </article>

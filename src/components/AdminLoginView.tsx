@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, KeyRound, AlertCircle } from 'lucide-react';
 import { DobraKaloriaMark } from './DobraKaloriaMark';
 import { InyfinnCopyright } from './InyfinnCopyright';
+import { HintTooltip } from './HintTooltip';
 
 interface AdminLoginViewProps {
   onSuccess: (password: string) => Promise<void> | void;
@@ -64,13 +65,16 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
                 autoComplete="current-password"
                 className="w-full bg-dk-bg/60 border border-dk-violet-soft rounded-xl px-3.5 py-2.5 text-sm font-normal text-dk-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-dk-violet/40 pr-10"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              <HintTooltip className="absolute right-2.5 top-1/2 -translate-y-1/2" side="bottom" text={showPassword ? 'Ukrywa wpisane hasło.' : 'Pokazuje wpisane hasło, żeby sprawdzić literówki.'}>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  aria-label={showPassword ? 'Ukryj hasło' : 'Pokaż hasło'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </HintTooltip>
             </div>
             {error && (
               <div className="flex items-center gap-1.5 mt-2 text-rose-600 text-xs font-semibold">
@@ -81,22 +85,26 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
           </div>
 
           <div className="pt-2 flex flex-col gap-2">
-            <button
-              type="submit"
-              disabled={busy || !password.trim()}
-              className="w-full py-3 btn-dk-primary text-sm disabled:opacity-40"
-            >
-              <span>{busy ? 'Logowanie…' : 'Wejdź do panelu'}</span>
-              <ArrowRight className="w-4 h-4 text-white" />
-            </button>
+            <HintTooltip className="w-full" text="Sprawdza hasło i otwiera Twój panel ankiet.">
+              <button
+                type="submit"
+                disabled={busy || !password.trim()}
+                className="w-full py-3 btn-dk-primary text-sm disabled:opacity-40"
+              >
+                <span>{busy ? 'Logowanie…' : 'Wejdź do panelu'}</span>
+                <ArrowRight className="w-4 h-4 text-white" />
+              </button>
+            </HintTooltip>
 
-            <button
-              type="button"
-              onClick={onCancel}
-              className="w-full py-2.5 bg-white hover:bg-dk-violet-soft text-dk-ink font-medium text-xs rounded-full transition-all cursor-pointer border border-dk-violet-soft"
-            >
-              Anuluj
-            </button>
+            <HintTooltip className="w-full" text="Zostajesz na tej stronie. Bez hasła panel się nie otworzy.">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full py-2.5 bg-white hover:bg-dk-violet-soft text-dk-ink font-medium text-xs rounded-full transition-all cursor-pointer border border-dk-violet-soft"
+              >
+                Anuluj
+              </button>
+            </HintTooltip>
           </div>
         </form>
       </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { ScoreLevelDescription, SurveyQuestion } from '../types';
 import { blankEvalQuestion } from '../data/surveyQuestions';
+import { HintTooltip } from './HintTooltip';
 
 interface Props {
   questions: SurveyQuestion[];
@@ -51,13 +52,15 @@ function FactorList({
             }}
             className="flex-1 rounded-xl border border-white/80 bg-white px-3 py-1.5 text-sm"
           />
-          <button
-            type="button"
-            className="text-rose-700 text-[11px] font-bold shrink-0 cursor-pointer"
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-          >
-            Usuń
-          </button>
+          <HintTooltip text="Usuwa tę pozycję z listy czynników.">
+            <button
+              type="button"
+              className="text-rose-700 text-[11px] font-bold shrink-0 cursor-pointer"
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+            >
+              Usuń
+            </button>
+          </HintTooltip>
         </div>
       ))}
       <div className="flex items-start gap-2">
@@ -74,9 +77,11 @@ function FactorList({
           }}
           className="flex-1 rounded-xl border border-white/80 bg-white px-3 py-1.5 text-sm"
         />
-        <button type="button" onClick={add} className="btn-dk-primary shrink-0 self-end">
-          Dodaj
-        </button>
+        <HintTooltip text="Dopisuje nowy czynnik do tej listy (pozytywne, neutralne albo negatywne).">
+          <button type="button" onClick={add} className="btn-dk-primary shrink-0 self-end">
+            Dodaj
+          </button>
+        </HintTooltip>
       </div>
     </div>
   );
@@ -92,9 +97,11 @@ function ScoreList({
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <button type="button" className="text-xs font-bold text-indigo-800 cursor-pointer" onClick={() => setOpen(!open)}>
-        {open ? 'Ukryj' : 'Pokaż'} opisy suwaka (1–11) — respondent widzi je przy ocenie
-      </button>
+      <HintTooltip text="Pokazuje lub ukrywa opisy, które respondent widzi przy każdej liczbie na suwaku.">
+        <button type="button" className="text-xs font-bold text-indigo-800 cursor-pointer" onClick={() => setOpen(!open)}>
+          {open ? 'Ukryj' : 'Pokaż'} opisy suwaka (1–11) — respondent widzi je przy ocenie
+        </button>
+      </HintTooltip>
       {open && (
         <div className="mt-3 space-y-2">
           {items.map((row, i) => (
@@ -160,9 +167,15 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
               Obszar {index + 1}
             </span>
             <div className="flex items-center gap-1">
-              <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, -1)}><ChevronUp className="w-4 h-4" /></button>
-              <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, 1)}><ChevronDown className="w-4 h-4" /></button>
-              <button type="button" className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer" onClick={() => onChange(questions.filter((_, i) => i !== index))}><Trash2 className="w-4 h-4" /></button>
+              <HintTooltip text="Przesuwa ten obszar oceny wyżej.">
+                <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, -1)}><ChevronUp className="w-4 h-4" /></button>
+              </HintTooltip>
+              <HintTooltip text="Przesuwa ten obszar oceny niżej.">
+                <button type="button" className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer" onClick={() => move(index, 1)}><ChevronDown className="w-4 h-4" /></button>
+              </HintTooltip>
+              <HintTooltip text="Usuwa cały obszar razem z pytaniami i czynnikami.">
+                <button type="button" className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer" onClick={() => onChange(questions.filter((_, i) => i !== index))}><Trash2 className="w-4 h-4" /></button>
+              </HintTooltip>
             </div>
           </div>
 
@@ -204,13 +217,15 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
                     }}
                     className="flex-1 rounded-lg border px-2 py-1 text-xs font-bold"
                   />
-                  <button
-                    type="button"
-                    className="text-[11px] font-bold text-rose-700 cursor-pointer"
-                    onClick={() => update(index, { subQuestions: q.subQuestions.filter((_, j) => j !== si) })}
-                  >
-                    Usuń pytanie
-                  </button>
+                  <HintTooltip text="Usuwa to pytanie ze suwakiem z obszaru.">
+                    <button
+                      type="button"
+                      className="text-[11px] font-bold text-rose-700 cursor-pointer"
+                      onClick={() => update(index, { subQuestions: q.subQuestions.filter((_, j) => j !== si) })}
+                    >
+                      Usuń pytanie
+                    </button>
+                  </HintTooltip>
                 </div>
                 <textarea
                   value={sq.text}
@@ -229,21 +244,23 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
                 />
               </div>
             ))}
-            <button
-              type="button"
-              className="text-xs font-bold text-indigo-700 cursor-pointer"
-              onClick={() => {
-                const stamp = `${Date.now().toString(36)}`;
-                update(index, {
-                  subQuestions: [
-                    ...q.subQuestions,
-                    { id: `sq_${stamp}`, label: 'Nowe pytanie', text: 'Jak oceniasz…?' },
-                  ],
-                });
-              }}
-            >
-              + Dodaj pytanie ze suwakiem
-            </button>
+            <HintTooltip text="Dodaje kolejne pytanie ze skalą 1–11 w tym obszarze.">
+              <button
+                type="button"
+                className="text-xs font-bold text-indigo-700 cursor-pointer"
+                onClick={() => {
+                  const stamp = `${Date.now().toString(36)}`;
+                  update(index, {
+                    subQuestions: [
+                      ...q.subQuestions,
+                      { id: `sq_${stamp}`, label: 'Nowe pytanie', text: 'Jak oceniasz…?' },
+                    ],
+                  });
+                }}
+              >
+                + Dodaj pytanie ze suwakiem
+              </button>
+            </HintTooltip>
           </div>
 
           <div className="grid gap-3">
@@ -272,14 +289,16 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
         </article>
       ))}
 
-      <button
-        type="button"
-        onClick={() => onChange([...questions, blankEvalQuestion()])}
-        className="w-full rounded-3xl border-2 border-dashed border-dk-violet/40 bg-white py-4 text-sm font-bold text-dk-violet-text hover:bg-dk-violet-soft cursor-pointer flex items-center justify-center gap-2"
-      >
-        <Plus className="w-4 h-4" />
-        Dodaj obszar oceny (suwaki + pozytywne / neutralne / negatywne)
-      </button>
+      <HintTooltip className="w-full" text="Nowy blok oceny: suwaki oraz czynniki pozytywne, neutralne i negatywne.">
+        <button
+          type="button"
+          onClick={() => onChange([...questions, blankEvalQuestion()])}
+          className="w-full rounded-3xl border-2 border-dashed border-dk-violet/40 bg-white py-4 text-sm font-bold text-dk-violet-text hover:bg-dk-violet-soft cursor-pointer flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Dodaj obszar oceny (suwaki + pozytywne / neutralne / negatywne)
+        </button>
+      </HintTooltip>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { DimensionStats, DimensionKey, SurveyResponse, SurveyQuestion, FactorCou
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toggleExcludeResponseAsync, deleteSingleResponseAsync } from '../utils/surveyStorage';
+import { HintTooltip } from './HintTooltip';
 
 interface ReportDashboardProps {
   stats: {
@@ -145,18 +146,20 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          <button
-            onClick={handleDownloadPdf}
-            disabled={isGeneratingPdf || stats.totalResponses === 0}
-            className={`px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-              stats.totalResponses > 0
-                ? 'bg-dk-green hover:bg-dk-green-hover text-white shadow-sm'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
-          >
-            {isGeneratingPdf ? <Printer className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            <span>Pobierz Raport PDF</span>
-          </button>
+          <HintTooltip text="Pobiera zbiorczy raport PDF z aktualnymi średnimi i wykresami.">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || stats.totalResponses === 0}
+              className={`px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                stats.totalResponses > 0
+                  ? 'bg-dk-green hover:bg-dk-green-hover text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              {isGeneratingPdf ? <Printer className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              <span>Pobierz Raport PDF</span>
+            </button>
+          </HintTooltip>
         </div>
       </div>
 
@@ -360,37 +363,39 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await toggleExcludeResponseAsync(resp.id, !isExcluded);
-                          onRefreshData?.();
-                        }}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                          isExcluded
-                            ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
-                            : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-                        }`}
-                        title={isExcluded ? "Przywróć tę ankietę do wyliczeń raportu" : "Oznacz tę ankietę jako test i wyklucz ze średnich"}
-                      >
-                        <EyeOff className="w-3.5 h-3.5" />
-                        <span>{isExcluded ? 'Przywróć do raportu' : 'Nie uwzględniaj (np. Test)'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (window.confirm(`Czy na pewno chcesz bezpowrotnie usunąć tę ankietę (${resp.tokenUsed}) z bazy danych? Odpowiedź zniknie, a kod zaproszenia zostanie odblokowany.`)) {
-                            await deleteSingleResponseAsync(resp.id);
+                      <HintTooltip text={isExcluded ? 'Znowu wlicza tę odpowiedź do średnich raportu.' : 'Oznacza odpowiedź jako test i wyłącza ją ze średnich.'}>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await toggleExcludeResponseAsync(resp.id, !isExcluded);
                             onRefreshData?.();
-                          }
-                        }}
-                        className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
-                        title="Usuń tę ankietę z bazy"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Usuń wynik</span>
-                      </button>
+                          }}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            isExcluded
+                              ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>{isExcluded ? 'Przywróć do raportu' : 'Nie uwzględniaj (np. Test)'}</span>
+                        </button>
+                      </HintTooltip>
+
+                      <HintTooltip text="Przenosi tę odpowiedź do kosza i odblokowuje kod zaproszenia.">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Czy na pewno chcesz bezpowrotnie usunąć tę ankietę (${resp.tokenUsed}) z bazy danych? Odpowiedź zniknie, a kod zaproszenia zostanie odblokowany.`)) {
+                              await deleteSingleResponseAsync(resp.id);
+                              onRefreshData?.();
+                            }
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Usuń wynik</span>
+                        </button>
+                      </HintTooltip>
                     </div>
                   </div>
                 );

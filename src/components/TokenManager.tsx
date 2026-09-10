@@ -40,6 +40,7 @@ import {
 } from '../utils/surveyStorage';
 import { parseSurveyFile } from '../utils/surveyTransfer';
 import { fillUrl } from '../utils/routerBase';
+import { HintTooltip } from './HintTooltip';
 
 interface TokenManagerProps {
   tokens: VoterToken[];
@@ -287,25 +288,28 @@ Dziękuję za Twój czas i pomoc!`;
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowUrlSettings(!showUrlSettings)}
-              className="btn-dk-ghost whitespace-nowrap"
-            >
-              <Settings2 className="w-3.5 h-3.5 text-dk-violet" />
-              <span>{showUrlSettings ? 'Ukryj edycję' : 'Własny URL'}</span>
-            </button>
-            {tokens.length > 0 && (
-              <a
-                href={getSurveyUrl(tokens[0].code, surveySlug)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-dk-primary whitespace-nowrap"
-                title="Otwórz przykładowy link w nowej karcie"
+            <HintTooltip text="Pokazuje pole na własny adres bazowy linków, np. po zmianie domeny.">
+              <button
+                type="button"
+                onClick={() => setShowUrlSettings(!showUrlSettings)}
+                className="btn-dk-ghost whitespace-nowrap"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Testuj link</span>
-              </a>
+                <Settings2 className="w-3.5 h-3.5 text-dk-violet" />
+                <span>{showUrlSettings ? 'Ukryj edycję' : 'Własny URL'}</span>
+              </button>
+            </HintTooltip>
+            {tokens.length > 0 && (
+              <HintTooltip text="Otwiera przykładowy unikalny link w nowej karcie, tak jak dostanie współpracownik.">
+                <a
+                  href={getSurveyUrl(tokens[0].code, surveySlug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-dk-primary whitespace-nowrap"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Testuj link</span>
+                </a>
+              </HintTooltip>
             )}
           </div>
         </div>
@@ -313,6 +317,7 @@ Dziękuję za Twój czas i pomoc!`;
         {/* 2 Main Choice Cards: Shared vs Dev */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {/* Card 1: Shared Public (ais-pre) */}
+          <HintTooltip className="w-full" text="Linki na publiczny adres Synology. Współpracownik nie loguje się do panelu.">
           <button
             type="button"
             onClick={() => handleSelectMode('shared')}
@@ -346,8 +351,10 @@ Dziękuję za Twój czas i pomoc!`;
               <span>Dostępny publicznie dla każdego bez konieczności logowania.</span>
             </div>
           </button>
+          </HintTooltip>
 
           {/* Card 2: Dev Link (ais-dev) */}
+          <HintTooltip className="w-full" text="Używa bieżącego adresu roboczego. Do testów u Ciebie, nie do rozsyłania na zewnątrz.">
           <button
             type="button"
             onClick={() => handleSelectMode('dev')}
@@ -380,6 +387,7 @@ Dziękuję za Twój czas i pomoc!`;
               <span>Wewnętrzny link do testów</span>
             </div>
           </button>
+          </HintTooltip>
         </div>
 
         {/* Collapsible URL Settings Panel */}
@@ -400,29 +408,35 @@ Dziękuję za Twój czas i pomoc!`;
                 placeholder="np. https://ankieta.twojadomena.pl"
                 className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <button
-                type="submit"
-                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer shrink-0 shadow-2xs"
-              >
-                Zapisz adres
-              </button>
+              <HintTooltip text="Zapisuje ten adres jako bazę wszystkich nowych linków zaproszeń.">
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer shrink-0 shadow-2xs"
+                >
+                  Zapisz adres
+                </button>
+              </HintTooltip>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
-              <button
-                type="button"
-                onClick={handleUseAiStudioPre}
-                className="px-2.5 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-semibold cursor-pointer transition-colors"
-              >
-                Użyj publicznego adresu (ais-pre)
-              </button>
-              <button
-                type="button"
-                onClick={handleResetUrl}
-                className="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold cursor-pointer transition-colors"
-              >
-                Przywróć domyślny
-              </button>
+              <HintTooltip text="Ustawia publiczny adres Synology jako bazę linków.">
+                <button
+                  type="button"
+                  onClick={handleUseAiStudioPre}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-semibold cursor-pointer transition-colors"
+                >
+                  Użyj publicznego adresu (ais-pre)
+                </button>
+              </HintTooltip>
+              <HintTooltip text="Wraca do automatycznie wykrytego adresu tej aplikacji.">
+                <button
+                  type="button"
+                  onClick={handleResetUrl}
+                  className="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold cursor-pointer transition-colors"
+                >
+                  Przywróć domyślny
+                </button>
+              </HintTooltip>
               {urlSaveSuccess && (
                 <span className="text-emerald-700 font-bold flex items-center gap-1 text-xs animate-fade-in">
                   <Check className="w-3.5 h-3.5" /> Zapisano!
@@ -444,31 +458,37 @@ Dziękuję za Twój czas i pomoc!`;
               placeholder="Nazwa współpracownika (np. Dział Logistyki, Jan Kowalski)..."
                 className="flex-1 px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
             />
-            <button
-              type="submit"
-              className="btn-dk-primary shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Dodaj osobę</span>
-            </button>
+            <HintTooltip text="Tworzy jeden nowy unikalny kod i link dla tej osoby.">
+              <button
+                type="submit"
+                className="btn-dk-primary shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Dodaj osobę</span>
+              </button>
+            </HintTooltip>
           </form>
 
           <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
             <span className="text-xs text-slate-500 font-medium">Generuj pakiet:</span>
-            <button
-              type="button"
-              onClick={() => handleBatch(3)}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
-            >
-              +3 linki
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBatch(5)}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
-            >
-              +5 linków
-            </button>
+            <HintTooltip text="Dodaje od razu trzy puste zaproszenia z kolejnymi kodami.">
+              <button
+                type="button"
+                onClick={() => handleBatch(3)}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+              >
+                +3 linki
+              </button>
+            </HintTooltip>
+            <HintTooltip text="Dodaje od razu pięć pustych zaproszeń z kolejnymi kodami.">
+              <button
+                type="button"
+                onClick={() => handleBatch(5)}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+              >
+                +5 linków
+              </button>
+            </HintTooltip>
           </div>
         </div>
       </div>
@@ -486,21 +506,23 @@ Dziękuję za Twój czas i pomoc!`;
               JPG/PNG to tylko podgląd; do importu potrzebny jest <strong>.kw360.json</strong> albo <strong>ZIP</strong> z pakietu.
             </p>
           </div>
-          <label className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-xs sm:text-sm font-bold cursor-pointer shadow-2xs ${isImporting ? 'bg-slate-400' : 'bg-emerald-700 hover:bg-emerald-800'}`}>
-            <FileArchive className="w-4 h-4" />
-            <span>{isImporting ? 'Wgrywanie...' : 'Wybierz plik wyniku'}</span>
-            <input
-              type="file"
-              className="hidden"
-              accept=".json,.zip,.pdf,.txt,.html,.kw360.json,application/json,application/zip,application/pdf"
-              disabled={isImporting}
-              onChange={async (e) => {
-                const file = e.target.files?.[0] || null;
-                e.target.value = '';
-                await handleImportFile(file);
-              }}
-            />
-          </label>
+          <HintTooltip text="Wgrywa wynik z pliku JSON albo ZIP do tej ankiety na serwerze.">
+            <label className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-xs sm:text-sm font-bold cursor-pointer shadow-2xs ${isImporting ? 'bg-slate-400' : 'bg-emerald-700 hover:bg-emerald-800'}`}>
+              <FileArchive className="w-4 h-4" />
+              <span>{isImporting ? 'Wgrywanie...' : 'Wybierz plik wyniku'}</span>
+              <input
+                type="file"
+                className="hidden"
+                accept=".json,.zip,.pdf,.txt,.html,.kw360.json,application/json,application/zip,application/pdf"
+                disabled={isImporting}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0] || null;
+                  e.target.value = '';
+                  await handleImportFile(file);
+                }}
+              />
+            </label>
+          </HintTooltip>
         </div>
         {importStatus && (
           <div className={`mt-3 text-xs font-semibold rounded-xl px-3 py-2 border ${
@@ -590,6 +612,7 @@ Dziękuję za Twój czas i pomoc!`;
                   <div className="flex items-center gap-2 flex-wrap justify-end w-full lg:max-w-[46%]">
                     {/* Exclude / Include toggle for used survey */}
                     {token.used && linkedResponse && (
+                      <HintTooltip text={isExcluded ? 'Znowu wlicza tę odpowiedź do średnich w raporcie.' : 'Oznacza odpowiedź jako test i wyłącza ją ze średnich raportu.'}>
                       <button
                         type="button"
                         onClick={() => handleToggleExclude(linkedResponse.id, isExcluded)}
@@ -598,31 +621,31 @@ Dziękuję za Twój czas i pomoc!`;
                             ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
                             : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
                         }`}
-                        title={isExcluded ? "Przywróć tę ankietę do wyliczeń raportu" : "Oznacz tę ankietę jako test i wyklucz z wyników raportu"}
                       >
                         <EyeOff className="w-3.5 h-3.5" />
                         <span>{isExcluded ? 'Przywróć do raportu' : 'Nie uwzględniaj (Test)'}</span>
                       </button>
+                      </HintTooltip>
                     )}
 
-                    {/* Reset used token to empty and remove response */}
                     {token.used && (
+                      <HintTooltip text="Kasuje zapisany wynik i odblokowuje ten sam link do ponownego wypełnienia.">
                       <button
                         type="button"
                         onClick={() => handleResetToken(token.id)}
                         className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
-                        title="Usuń zapisany wynik tej ankiety i odblokuj link do ponownego wypełnienia"
                       >
                         <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
                         <span>Usuń wynik / Resetuj</span>
                       </button>
+                      </HintTooltip>
                     )}
 
+                    <HintTooltip text="Kopiuje gotową wiadomość z linkiem, do wklejenia na Teams, Slack albo mail.">
                     <button
                       type="button"
                       onClick={() => copyInvitationTemplate(token)}
                       className="btn-dk-primary"
-                      title="Kopiuj gotową, uprzejmą wiadomość z linkiem do wklejenia na Teams/Slack/Mail"
                     >
                       {copiedMessageFor === token.id ? (
                         <>
@@ -636,12 +659,13 @@ Dziękuję za Twój czas i pomoc!`;
                         </>
                       )}
                     </button>
+                    </HintTooltip>
 
+                    <HintTooltip text="Kopiuje sam adres linku, bez treści wiadomości.">
                     <button
                       type="button"
                       onClick={() => copyToClipboard(directLink, token.id)}
                       className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                      title="Kopiuj sam link"
                     >
                       {copiedCode === token.id ? (
                         <>
@@ -655,27 +679,31 @@ Dziękuję za Twój czas i pomoc!`;
                         </>
                       )}
                     </button>
+                    </HintTooltip>
 
                     {onSelectTokenToFill && (
+                      <HintTooltip text="Otwiera ten unikalny link w tej samej aplikacji, żeby sprawdzić formularz.">
                       <button
                         type="button"
                         onClick={() => onSelectTokenToFill(token.code)}
                         className="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                        title="Otwórz i przetestuj ankietę bezpośrednio w tej aplikacji (bez nowej karty)"
                       >
                         <PlayCircle className="w-3.5 h-3.5 text-indigo-600" />
                         <span>Wypełnij</span>
                       </button>
+                      </HintTooltip>
                     )}
 
+                    <HintTooltip text="Usuwa ten kod. Osoba z tym linkiem nie wypełni już ankiety.">
                     <button
                       type="button"
                       onClick={() => handleDelete(token.id)}
                       className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                      title="Usuń link"
+                      aria-label="Usuń link"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                    </HintTooltip>
                   </div>
                 </div>
               );
