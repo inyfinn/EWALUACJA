@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { TrashStore } from '../types';
 import { emptyTrashResponse, emptyTrashSurvey, fetchTrash, restoreResponseApi, restoreSurveyApi } from '../utils/cmsApi';
 import { HintTooltip } from '../components/HintTooltip';
+import { ConfirmPopover } from '../components/ConfirmPopover';
 
 export function TrashPage() {
   const [trash, setTrash] = useState<TrashStore>({ surveys: [], responses: [] });
@@ -57,17 +58,21 @@ export function TrashPage() {
                 </button>
               </HintTooltip>
               <HintTooltip text="Kasuje ankietę z kosza na stałe. Tego nie da się cofnąć.">
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
-                  onClick={async () => {
-                    if (!window.confirm('Usunąć na stałe z kosza?')) return;
+                <ConfirmPopover
+                  message={`Usunąć „${item.survey.title}” z kosza na stałe? Tego nie da się cofnąć.`}
+                  confirmLabel="Usuń na zawsze"
+                  onConfirm={async () => {
                     await emptyTrashSurvey(item.survey.id);
                     await load();
                   }}
                 >
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
+                >
                   Usuń na zawsze
                 </button>
+                </ConfirmPopover>
               </HintTooltip>
             </div>
           </div>
@@ -100,17 +105,21 @@ export function TrashPage() {
                 </button>
               </HintTooltip>
               <HintTooltip text="Kasuje tę odpowiedź z kosza na stałe.">
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
-                  onClick={async () => {
-                    if (!window.confirm('Usunąć tę odpowiedź na zawsze?')) return;
+                <ConfirmPopover
+                  message="Usunąć tę odpowiedź z kosza na zawsze? Tego nie da się cofnąć."
+                  confirmLabel="Usuń na zawsze"
+                  onConfirm={async () => {
                     await emptyTrashResponse(item.response.id);
                     await load();
                   }}
                 >
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-xl text-rose-700 text-xs font-bold cursor-pointer"
+                >
                   Usuń na zawsze
                 </button>
+                </ConfirmPopover>
               </HintTooltip>
             </div>
           </div>

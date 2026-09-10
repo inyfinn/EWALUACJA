@@ -4,6 +4,7 @@ import { ManagedSurvey } from '../types';
 import { fetchPanels, updateSurveyApi, type CmsPanel } from '../utils/cmsApi';
 import { getSessionPanel } from '../utils/authSession';
 import { HintTooltip } from './HintTooltip';
+import { ConfirmPopover } from './ConfirmPopover';
 
 interface SurveyCollaboratorsProps {
   survey: ManagedSurvey;
@@ -51,15 +52,7 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
   };
 
   const handleRemove = async (id: string) => {
-    const person = owners.find((p) => p.id === id);
     if (ownerIds.length <= 1) return;
-    const leavingSelf = me?.id === id;
-    const ok = window.confirm(
-      leavingSelf
-        ? `Usunąć siebie z dostępu do „${survey.title}”? Po tej zmianie ankieta zniknie z Twojej listy.`
-        : `Zabrać ${person?.name || 'tej osobie'} dostęp do panelu tej ankiety? Nie kasuje to linków do wypełnienia.`,
-    );
-    if (!ok) return;
     await saveOwners(ownerIds.filter((oid) => oid !== id));
   };
 
@@ -91,14 +84,23 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
               {isMe && <span className="font-medium text-dk-ink/50">(Ty)</span>}
               {canRemove ? (
                 <HintTooltip text="Zabiera tej osobie dostęp do ankiety w panelu. Linki ankietowanych zostają.">
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(person.id)}
-                    className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
-                    aria-label={`Usuń dostęp: ${person.name}`}
+                  <ConfirmPopover
+                    message={
+                      isMe
+                        ? `Usunąć siebie z dostępu do „${survey.title}”? Ankieta zniknie z Twojej listy.`
+                        : `Zabrać ${person.name} dostęp do panelu tej ankiety? Linki ankietowanych zostają.`
+                    }
+                    confirmLabel="Zabierz dostęp"
+                    onConfirm={() => handleRemove(person.id)}
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    <button
+                      type="button"
+                      className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                      aria-label={`Usuń dostęp: ${person.name}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </ConfirmPopover>
                 </HintTooltip>
               ) : null}
             </span>

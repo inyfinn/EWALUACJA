@@ -27,6 +27,7 @@ import {
 } from '../utils/surveyStorage';
 import { parseSurveyFile } from '../utils/surveyTransfer';
 import { HintTooltip } from './HintTooltip';
+import { ConfirmPopover } from './ConfirmPopover';
 
 interface TokenManagerProps {
   tokens: VoterToken[];
@@ -55,6 +56,8 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   const [importStatus, setImportStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
     await addCustomTokenAsync(newLabel.trim() || `Ankietowany ${tokens.length + 1}`, surveyId, createAsTest);
@@ -70,14 +73,9 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    const token = tokens.find(t => t.id === id);
-    const msg = token?.used
-      ? `Ten link (${token.label || token.code}) został już wypełniony. Usunięcie go usunie również zapisany wynik ankiety z raportu. Czy na pewno usunąć?`
-      : 'Czy na pewno chcesz usunąć ten link?';
-    if (window.confirm(msg)) {
-      await deleteTokenAsync(id);
-      onTokensUpdated();
-    }
+    await deleteTokenAsync(id);
+    setSelectedIds((ids) => ids.filter((x) => x !== id));
+    onTokensUpdated();
   };
 
   const handleToggleExclude = async (responseId: string, currentExcluded: boolean) => {
@@ -86,10 +84,23 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   };
 
   const handleResetToken = async (tokenId: string) => {
-    if (window.confirm('Czy na pewno chcesz usunąć wynik ankiety i odblokować ten link do ponownego wypełnienia?')) {
-      await resetTokenAsync(tokenId);
-      onTokensUpdated();
+    await resetTokenAsync(tokenId);
+    onTokensUpdated();
+  };
+
+  const toggleToken = (id: string) => {
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  };
+
+  const selectedTokens = tokens.filter((t) => selectedIds.includes(t.id));
+  const allTokensSelected = tokens.length > 0 && selectedIds.length === tokens.length;
+
+  const bulkDeleteTokens = async () => {
+    for (const token of selectedTokens) {
+      await deleteTokenAsync(token.id);
     }
+    setSelectedIds([]);
+    onTokensUpdated();
   };
 
   const handleImportFile = async (file: File | null) => {
@@ -321,14 +332,41 @@ Dziękuję za Twój czas i pomoc!`;
 
       {/* List of Tokens with Direct Links and One-Click Copy */}
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-16 z-20 bg-white">
           <div>
             <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania ankietowanym</h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Kliknij „Kopiuj Zaproszenie” i wklej osobie, która ma wypełnić ankietę (Teams, Slack, mail lub SMS).
             </p>
           </div>
-          <span className="text-xs font-bold text-slate-400">Łącznie: {tokens.length}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {tokens.length > 0 && (
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-dk-ink cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded accent-dk-violet"
+                  checked={allTokensSelected}
+                  onChange={() => setSelectedIds(allTokensSelected ? [] : tokens.map((t) => t.id))}
+                />
+                Zaznacz wszystkie
+              </label>
+            )}
+            {selectedTokens.length > 0 && (
+              <ConfirmPopover
+                message={
+                  selectedTokens.some((t) => t.used)
+                    ? `Usunąć ${selectedTokens.length} zaznaczonych linków? Wypełnione znikną też z raportu.`
+                    : `Usunąć ${selectedTokens.length} zaznaczonych linków?`
+                }
+                onConfirm={bulkDeleteTokens}
+              >
+                <button type="button" className="btn-dk-danger !py-1.5">
+                  <Trash2 className="w-3.5 h-3.5" /> Usuń zaznaczone
+                </button>
+              </ConfirmPopover>
+            )}
+            <span className="text-xs font-bold text-slate-400">Łącznie: {tokens.length}</span>
+          </div>
         </div>
 
         {tokens.length === 0 ? (
@@ -350,10 +388,19 @@ Dziękuję za Twój czas i pomoc!`;
                 <div
                   key={token.id}
                   className={`p-4 sm:p-5 flex flex-col lg:flex-row lg:items-start justify-between gap-4 transition-colors ${
-                    token.used ? (isExcluded ? 'bg-amber-50/30' : 'bg-emerald-50/20') : 'hover:bg-slate-50/70'
+                    selectedIds.includes(token.id)
+                      ? 'bg-dk-violet-soft/40'
+                      : token.used ? (isExcluded ? 'bg-amber-50/30' : 'bg-emerald-50/20') : 'hover:bg-slate-50/70'
                   }`}
                 >
                   <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 shrink-0 rounded accent-dk-violet cursor-pointer"
+                      checked={selectedIds.includes(token.id)}
+                      aria-label={`Zaznacz ${token.label || token.code}`}
+                      onChange={() => toggleToken(token.id)}
+                    />
                     <span className="text-xs font-mono font-bold text-slate-400 w-6">#{idx + 1}</span>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -419,14 +466,19 @@ Dziękuję za Twój czas i pomoc!`;
 
                     {token.used && (
                       <HintTooltip text="Kasuje zapisany wynik i odblokowuje ten sam link do ponownego wypełnienia.">
+                      <ConfirmPopover
+                        message="Usunąć wynik tej ankiety i odblokować ten sam link do ponownego wypełnienia?"
+                        confirmLabel="Usuń wynik"
+                        onConfirm={() => handleResetToken(token.id)}
+                      >
                       <button
                         type="button"
-                        onClick={() => handleResetToken(token.id)}
                         className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
                       >
                         <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
                         <span>Usuń wynik / Resetuj</span>
                       </button>
+                      </ConfirmPopover>
                       </HintTooltip>
                     )}
 
@@ -484,14 +536,22 @@ Dziękuję za Twój czas i pomoc!`;
                     )}
 
                     <HintTooltip text="Usuwa ten kod. Osoba z tym linkiem nie wypełni już ankiety.">
+                    <ConfirmPopover
+                      message={
+                        token.used
+                          ? `Ten link (${token.label || token.code}) został już wypełniony. Usunięcie skasuje też wynik z raportu.`
+                          : `Usunąć link „${token.label || token.code}”?`
+                      }
+                      onConfirm={() => handleDelete(token.id)}
+                    >
                     <button
                       type="button"
-                      onClick={() => handleDelete(token.id)}
                       className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       aria-label="Usuń link"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                    </ConfirmPopover>
                     </HintTooltip>
                   </div>
                 </div>

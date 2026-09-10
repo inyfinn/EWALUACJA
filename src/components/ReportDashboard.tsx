@@ -28,6 +28,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toggleExcludeResponseAsync, deleteSingleResponseAsync } from '../utils/surveyStorage';
 import { HintTooltip } from './HintTooltip';
+import { ConfirmPopover } from './ConfirmPopover';
 
 interface ReportDashboardProps {
   stats: {
@@ -382,19 +383,21 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
                       </HintTooltip>
 
                       <HintTooltip text="Przenosi tę odpowiedź do kosza i odblokowuje kod zaproszenia.">
+                        <ConfirmPopover
+                          message={`Usunąć wynik (${resp.tokenUsed}) z raportu? Kod zaproszenia zostanie odblokowany, a odpowiedź trafi do kosza.`}
+                          onConfirm={async () => {
+                            await deleteSingleResponseAsync(resp.id);
+                            onRefreshData?.();
+                          }}
+                        >
                         <button
                           type="button"
-                          onClick={async () => {
-                            if (window.confirm(`Czy na pewno chcesz bezpowrotnie usunąć tę ankietę (${resp.tokenUsed}) z bazy danych? Odpowiedź zniknie, a kod zaproszenia zostanie odblokowany.`)) {
-                              await deleteSingleResponseAsync(resp.id);
-                              onRefreshData?.();
-                            }
-                          }}
                           className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
                         >
                           <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                           <span>Usuń wynik</span>
                         </button>
+                        </ConfirmPopover>
                       </HintTooltip>
                     </div>
                   </div>

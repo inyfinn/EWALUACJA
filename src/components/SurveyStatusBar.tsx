@@ -1,6 +1,7 @@
 import { Pause, Play, Trash2 } from 'lucide-react';
 import { ManagedSurvey } from '../types';
 import { HintTooltip } from './HintTooltip';
+import { ConfirmPopover } from './ConfirmPopover';
 
 export function statusLabel(survey: ManagedSurvey) {
   if (survey.archived) return 'Zarchiwizowana';
@@ -20,7 +21,7 @@ interface Props {
   survey: ManagedSurvey;
   onPublish: () => void;
   onPause: () => void;
-  onDelete: () => void;
+  onDelete: () => void | Promise<void>;
 }
 
 export function SurveyStatusBar({ survey, onPublish, onPause, onDelete }: Props) {
@@ -44,9 +45,15 @@ export function SurveyStatusBar({ survey, onPublish, onPause, onDelete }: Props)
         </HintTooltip>
       )}
       <HintTooltip text="Przenosi ankietę i jej odpowiedzi do kosza. Da się je potem przywrócić.">
-        <button type="button" className="btn-dk-danger !px-2.5 !py-1" onClick={onDelete}>
-          <Trash2 className="w-3 h-3" /> Usuń
-        </button>
+        <ConfirmPopover
+          message={`Przenieść „${survey.title}” do kosza (wraz z odpowiedziami)? Da się potem przywrócić.`}
+          confirmLabel="Do kosza"
+          onConfirm={onDelete}
+        >
+          <button type="button" className="btn-dk-danger !px-2.5 !py-1">
+            <Trash2 className="w-3 h-3" /> Usuń
+          </button>
+        </ConfirmPopover>
       </HintTooltip>
     </div>
   );

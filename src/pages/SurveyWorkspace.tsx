@@ -63,7 +63,6 @@ export function SurveyWorkspace() {
             onPublish={async () => { await setSurveyStatusApi(survey.id, 'live'); await reload(); }}
             onPause={async () => { await setSurveyStatusApi(survey.id, 'closed'); await reload(); }}
             onDelete={async () => {
-              if (!window.confirm(`Przenieść „${survey.title}” do kosza?`)) return;
               await deleteSurveyApi(survey.id);
               navigate('/cms');
             }}
