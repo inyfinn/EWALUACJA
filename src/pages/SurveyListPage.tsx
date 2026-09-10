@@ -188,9 +188,9 @@ export function SurveyListPage() {
                   onClick={(e) => e.stopPropagation()}
                   onChange={() => toggleOne(survey.id)}
                 />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h3 className="font-semibold text-dk-ink text-lg truncate">{survey.title}</h3>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-dk-ink text-lg break-words">{survey.title}</h3>
+                  <div className="flex items-center gap-2 flex-wrap mt-1.5 mb-1">
                     <SurveyStatusBar
                       survey={survey}
                       onPublish={async () => { await setSurveyStatusApi(survey.id, 'live'); await load(); }}
@@ -231,7 +231,7 @@ export function SurveyListPage() {
                   </button>
                 </HintTooltip>
                 <HintTooltip text="Otwiera ankietę w podglądzie. Wynik się nie zapisze.">
-                  <a href={fillUrl(survey.slug, 'PODGLAD')} target="_blank" rel="noopener" className="btn-dk-ghost">
+                  <a href={fillUrl(survey.slug, 'PODGLAD')} target="_blank" className="btn-dk-ghost">
                     <ExternalLink className="w-3.5 h-3.5" /> Podgląd
                   </a>
                 </HintTooltip>

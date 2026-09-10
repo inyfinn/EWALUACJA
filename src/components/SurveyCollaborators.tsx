@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Check, Copy, UserPlus, Users, X } from 'lucide-react';
+import { KeyRound, UserPlus, Users, X } from 'lucide-react';
 import { ManagedSurvey } from '../types';
-import { createPanelApi, fetchPanels, updateSurveyApi, type CmsPanel } from '../utils/cmsApi';
+import {
+  createPanelApi,
+  deleteManagedPanel,
+  fetchManagedPanels,
+  fetchPanels,
+  resetManagedPanelPassword,
+  updateSurveyApi,
+  type CmsPanel,
+} from '../utils/cmsApi';
 import { getSessionPanel } from '../utils/authSession';
 import { HintTooltip } from './HintTooltip';
 import { ConfirmPopover } from './ConfirmPopover';
+import { CredentialsToast, type CreatedCredentials } from './CredentialsToast';
+
+const CREATE_VALUE = '__create__';
 
 interface SurveyCollaboratorsProps {
   survey: ManagedSurvey;
@@ -14,19 +25,21 @@ interface SurveyCollaboratorsProps {
 export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsProps) {
   const me = getSessionPanel();
   const [panels, setPanels] = useState<CmsPanel[]>([]);
+  const [managed, setManaged] = useState<CmsPanel[]>([]);
   const [pickId, setPickId] = useState('');
   const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ name: string; password: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<CreatedCredentials | null>(null);
 
-  const reloadPanels = async () => {
-    setPanels(await fetchPanels());
+  const reloadLists = async () => {
+    const [all, mine] = await Promise.all([fetchPanels(), fetchManagedPanels()]);
+    setPanels(all);
+    setManaged(mine);
   };
 
   useEffect(() => {
-    reloadPanels().catch((e) => setError(e.message || 'Nie udało się wczytać listy paneli.'));
+    reloadLists().catch((e) => setError(e.message || 'Nie udało się wczytać listy paneli.'));
   }, []);
 
   const ownerIds = survey.ownerIds || [];
@@ -50,30 +63,34 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
     }
   };
 
-  const handleAddExisting = async (e: FormEvent) => {
+  const handleAddOrCreate = async (e: FormEvent) => {
     e.preventDefault();
+    if (pickId === CREATE_VALUE) {
+      const name = newName.trim();
+      if (name.length < 2) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const person = await createPanelApi(name, survey.id);
+        setToast({
+          name: person.name,
+          login: person.login,
+          password: person.password,
+          kind: 'created',
+        });
+        setNewName('');
+        setPickId('');
+        await reloadLists();
+        await onUpdated();
+      } catch (err: any) {
+        setError(err.message || 'Nie udało się utworzyć osoby z panelem.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!pickId || ownerIds.includes(pickId)) return;
     await saveOwners([...ownerIds, pickId]);
-  };
-
-  const handleCreate = async (e: FormEvent) => {
-    e.preventDefault();
-    const name = newName.trim();
-    if (name.length < 2) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const person = await createPanelApi(name, survey.id);
-      setCreated({ name: person.name, password: person.password });
-      setCopied(false);
-      setNewName('');
-      await reloadPanels();
-      await onUpdated();
-    } catch (e: any) {
-      setError(e.message || 'Nie udało się utworzyć osoby z panelem.');
-    } finally {
-      setBusy(false);
-    }
   };
 
   const handleRemove = async (id: string) => {
@@ -81,137 +98,218 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
     await saveOwners(ownerIds.filter((oid) => oid !== id));
   };
 
-  const copyPassword = async () => {
-    if (!created) return;
-    await navigator.clipboard.writeText(created.password);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  const handleResetPassword = async (person: CmsPanel) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await resetManagedPanelPassword(person.id);
+      setToast({
+        name: next.name,
+        login: next.login,
+        password: next.password,
+        kind: 'password',
+      });
+    } catch (e: any) {
+      setError(e.message || 'Nie udało się wygenerować nowego hasła.');
+    } finally {
+      setBusy(false);
+    }
   };
 
+  const handleDeleteManaged = async (person: CmsPanel) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteManagedPanel(person.id);
+      await reloadLists();
+      await onUpdated();
+    } catch (e: any) {
+      setError(e.message || 'Nie udało się usunąć tej osoby.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const creating = pickId === CREATE_VALUE;
+  const canSubmit = creating ? newName.trim().length >= 2 : Boolean(pickId);
+
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
-      <div className="flex items-start gap-3 mb-4">
-        <div className="w-10 h-10 rounded-2xl bg-dk-violet-soft text-dk-violet-text flex items-center justify-center shrink-0">
-          <Users className="w-5 h-5" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-dk-ink text-base">Współpracownicy panelu</h3>
-          <p className="text-xs text-dk-ink/70 mt-1 max-w-[70ch] leading-relaxed">
-            Te osoby mają hasło do Panelu Ankiet i mogą otworzyć tę ankietę: treść, linki i wyniki.
-            To nie jest zaproszenie do wypełnienia formularza.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-4">
-        {owners.map((person) => {
-          const isMe = me?.id === person.id;
-          const canRemove = ownerIds.length > 1 && !busy;
-          return (
-            <span
-              key={person.id}
-              className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-dk-bg border border-dk-violet-soft text-xs font-semibold text-dk-ink"
-            >
-              {person.name}
-              {isMe && <span className="font-medium text-dk-ink/50">(Ty)</span>}
-              {canRemove ? (
-                <HintTooltip text="Zabiera tej osobie dostęp do ankiety w panelu. Linki ankietowanych zostają.">
-                  <ConfirmPopover
-                    message={
-                      isMe
-                        ? `Usunąć siebie z dostępu do „${survey.title}”? Ankieta zniknie z Twojej listy.`
-                        : `Zabrać ${person.name} dostęp do panelu tej ankiety? Linki ankietowanych zostają.`
-                    }
-                    confirmLabel="Zabierz dostęp"
-                    onConfirm={() => handleRemove(person.id)}
-                  >
-                    <button
-                      type="button"
-                      className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
-                      aria-label={`Usuń dostęp: ${person.name}`}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </ConfirmPopover>
-                </HintTooltip>
-              ) : null}
-            </span>
-          );
-        })}
-      </div>
-
-      {candidates.length > 0 && (
-        <form onSubmit={handleAddExisting} className="flex flex-wrap items-center gap-2 mb-3">
-          <select
-            value={pickId}
-            onChange={(e) => setPickId(e.target.value)}
-            disabled={busy}
-            className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
-            aria-label="Wybierz współpracownika panelu"
-          >
-            <option value="">Wybierz osobę, która już ma panel…</option>
-            {candidates.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <HintTooltip text="Daje wybranej osobie dostęp do tej ankiety. Nie tworzy nowego hasła.">
-            <button
-              type="submit"
-              disabled={busy || !pickId}
-              className="btn-dk-ghost shrink-0 disabled:opacity-50"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Dodaj współpracownika</span>
-            </button>
-          </HintTooltip>
-        </form>
-      )}
-
-      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
-        <input
-          type="text"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          disabled={busy}
-          placeholder="Imię nowej osoby (np. Magda)…"
-          className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
-        />
-        <HintTooltip text="Tworzy konto do logowania. Hasło wygeneruje się samo. Przekaż je tej osobie.">
-          <button
-            type="submit"
-            disabled={busy || newName.trim().length < 2}
-            className="btn-dk-primary shrink-0 disabled:opacity-50"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Utwórz osobę z panelem</span>
-          </button>
-        </HintTooltip>
-      </form>
-
-      {created && (
-        <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="text-xs font-semibold text-emerald-950">
-            Konto dla {created.name} jest gotowe. Hasło pokazuje się tylko teraz. Przekaż je tej osobie, żeby mogła się zalogować.
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <code className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-sm font-mono text-dk-ink">
-              {created.password}
-            </code>
-            <HintTooltip text="Kopiuje wygenerowane hasło do schowka.">
-              <button type="button" className="btn-dk-ghost !py-1.5" onClick={() => void copyPassword()}>
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? 'Skopiowano' : 'Kopiuj hasło'}</span>
-              </button>
-            </HintTooltip>
+    <>
+      <CredentialsToast creds={toast} onClose={() => setToast(null)} />
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-2xl bg-dk-violet-soft text-dk-violet-text flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-dk-ink text-base">Współpracownicy panelu</h3>
+              <p className="text-xs text-dk-ink/70 mt-1 max-w-[70ch] leading-relaxed">
+                Te osoby mają hasło do Panelu Ankiet i mogą otworzyć tę ankietę: treść, linki i wyniki.
+                To nie jest zaproszenie do wypełnienia formularza.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
 
-      {error && (
-        <div className="mt-3 text-xs font-semibold rounded-xl px-3 py-2 border bg-rose-50 text-rose-900 border-rose-200">
-          {error}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {owners.map((person) => {
+              const isMe = me?.id === person.id;
+              const canRemove = ownerIds.length > 1 && !busy;
+              return (
+                <span
+                  key={person.id}
+                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-dk-bg border border-dk-violet-soft text-xs font-semibold text-dk-ink"
+                >
+                  {person.name}
+                  {isMe && <span className="font-medium text-dk-ink/50">(Ty)</span>}
+                  {canRemove ? (
+                    <HintTooltip text="Zabiera tej osobie dostęp do ankiety w panelu. Linki ankietowanych zostają.">
+                      <ConfirmPopover
+                        message={
+                          isMe
+                            ? `Usunąć siebie z dostępu do „${survey.title}”? Ankieta zniknie z Twojej listy.`
+                            : `Zabrać ${person.name} dostęp do panelu tej ankiety? Linki ankietowanych zostają.`
+                        }
+                        confirmLabel="Zabierz dostęp"
+                        onConfirm={() => handleRemove(person.id)}
+                      >
+                        <button
+                          type="button"
+                          className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                          aria-label={`Usuń dostęp: ${person.name}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </ConfirmPopover>
+                    </HintTooltip>
+                  ) : null}
+                </span>
+              );
+            })}
+          </div>
+
+          <form onSubmit={handleAddOrCreate} className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={pickId}
+                onChange={(e) => {
+                  setPickId(e.target.value);
+                  if (e.target.value !== CREATE_VALUE) setNewName('');
+                }}
+                disabled={busy}
+                className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
+                aria-label="Dodaj współpracownika panelu"
+              >
+                <option value="">Dodaj osobę do tej ankiety…</option>
+                <option value={CREATE_VALUE}>Utwórz użytkownika</option>
+                {candidates.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {!creating && (
+                <HintTooltip text="Daje wybranej osobie dostęp do tej ankiety. Nie tworzy nowego hasła.">
+                  <button
+                    type="submit"
+                    disabled={busy || !canSubmit}
+                    className="btn-dk-ghost shrink-0 disabled:opacity-50"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Dodaj współpracownika</span>
+                  </button>
+                </HintTooltip>
+              )}
+            </div>
+            {creating && (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  disabled={busy}
+                  placeholder="Nazwa"
+                  autoFocus
+                  className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
+                  aria-label="Nazwa nowego użytkownika"
+                />
+                <HintTooltip text="Tworzy konto do logowania. Hasło wygeneruje się samo. Pokaże się raz, do skopiowania.">
+                  <button
+                    type="submit"
+                    disabled={busy || !canSubmit}
+                    className="btn-dk-primary shrink-0 disabled:opacity-50"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Utwórz</span>
+                  </button>
+                </HintTooltip>
+              </div>
+            )}
+          </form>
+
+          {error && (
+            <div className="mt-3 text-xs font-semibold rounded-xl px-3 py-2 border bg-rose-50 text-rose-900 border-rose-200">
+              {error}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-2xl bg-dk-violet-soft text-dk-violet-text flex items-center justify-center shrink-0">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-dk-ink text-base">Osoby, które dodałeś</h3>
+              <p className="text-xs text-dk-ink/70 mt-1 max-w-[70ch] leading-relaxed">
+                Tu zarządzasz kontami utworzonymi z Twojego panelu: nowe hasło albo usunięcie osoby.
+              </p>
+            </div>
+          </div>
+
+          {managed.length === 0 ? (
+            <p className="text-xs text-dk-ink/50">
+              Nikogo jeszcze nie utworzyłeś. Wybierz „Utwórz użytkownika” w kafelku obok.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {managed.map((person) => (
+                <li
+                  key={person.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dk-violet-soft bg-dk-bg/40 px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-dk-ink break-words">{person.name}</p>
+                    <p className="text-[11px] font-mono text-dk-ink/50 break-all">login: {person.login || person.id}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <HintTooltip text="Generuje nowe hasło. Stare przestaje działać. Nowe pokazuje się raz, do skopiowania.">
+                      <ConfirmPopover
+                        message={`Wygenerować nowe hasło dla ${person.name}? Stare hasło przestanie działać.`}
+                        confirmLabel="Nowe hasło"
+                        onConfirm={() => handleResetPassword(person)}
+                      >
+                        <button type="button" className="btn-dk-ghost !py-1.5" disabled={busy}>
+                          Nowe hasło
+                        </button>
+                      </ConfirmPopover>
+                    </HintTooltip>
+                    <HintTooltip text="Usuwa konto tej osoby. Zniknie też z dostępów do ankiet.">
+                      <ConfirmPopover
+                        message={`Usunąć konto ${person.name}? Ta osoba nie zaloguje się już do panelu.`}
+                        confirmLabel="Usuń konto"
+                        onConfirm={() => handleDeleteManaged(person)}
+                      >
+                        <button type="button" className="btn-dk-danger !py-1.5" disabled={busy}>
+                          Usuń
+                        </button>
+                      </ConfirmPopover>
+                    </HintTooltip>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

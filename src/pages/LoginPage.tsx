@@ -14,8 +14,8 @@ export function LoginPage() {
 
   return (
     <AdminLoginView
-      onSuccess={async (password) => {
-        const data = await loginWithPassword(password);
+      onSuccess={async ({ login, password }) => {
+        const data = await loginWithPassword(password, login);
         setSession(data.token, data.panel);
         navigate(from.startsWith('/cms') ? from : '/cms', { replace: true });
       }}

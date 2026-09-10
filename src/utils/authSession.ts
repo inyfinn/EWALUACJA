@@ -4,6 +4,7 @@ const PANEL_KEY = 'kw_panel';
 export interface SessionPanel {
   id: string;
   name: string;
+  login?: string;
 }
 
 export function getSessionToken(): string | null {

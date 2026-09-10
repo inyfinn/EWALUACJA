@@ -11,6 +11,10 @@ export function publicOriginBase(): string {
   return `${window.location.origin}${base}`;
 }
 
+export function cmsLoginUrl(): string {
+  return `${publicOriginBase()}cms/login`;
+}
+
 export function fillUrl(slug: string, tokenCode?: string): string {
   const clean = String(slug || '').replace(/^\/+|\/+$/g, '');
   const url = `${publicOriginBase()}s/${clean}`;

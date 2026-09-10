@@ -32,6 +32,8 @@ interface StoredPanel {
   id: string;
   name: string;
   password: string;
+  login?: string;
+  createdBy?: string;
 }
 
 interface SurveyField {
@@ -300,10 +302,22 @@ function writeStore(data: StoreData) {
   }
 }
 
+function builtinPanelIds() {
+  return new Set(BUILTIN_PANELS.map((p) => p.id));
+}
+
 function allPanels(store: StoreData): StoredPanel[] {
-  const builtinIds = new Set(BUILTIN_PANELS.map((p) => p.id));
+  const builtinIds = builtinPanelIds();
   const extra = (store.panels || []).filter((p) => p.id && p.name && p.password && !builtinIds.has(p.id));
   return [...BUILTIN_PANELS, ...extra];
+}
+
+function panelLogin(p: StoredPanel) {
+  return String(p.login || p.id);
+}
+
+function publicPanel(p: StoredPanel) {
+  return { id: p.id, name: p.name, login: panelLogin(p) };
 }
 
 function panelByPassword(store: StoreData, password: string) {
@@ -334,7 +348,7 @@ function generatePanelPassword(existing: StoredPanel[]): string {
 }
 
 function publicPanels(store: StoreData) {
-  return allPanels(store).map((p) => ({ id: p.id, name: p.name }));
+  return allPanels(store).map(publicPanel);
 }
 
 function panelFromRequest(req: express.Request, store: StoreData) {
@@ -366,16 +380,26 @@ function ownedSurveys(store: StoreData, panelId: string) {
 
 app.post('/api/auth/login', (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const loginRaw = typeof req.body?.login === 'string' ? req.body.login.trim() : '';
   const store = readStore();
-  const panel = panelByPassword(store, password);
+  let panel: StoredPanel | null = null;
+  if (loginRaw) {
+    const loginNeedle = loginRaw.toLowerCase();
+    const needle = normPass(password);
+    panel = allPanels(store).find((p) =>
+      panelLogin(p).toLowerCase() === loginNeedle && normPass(p.password) === needle,
+    ) || null;
+  } else {
+    panel = panelByPassword(store, password);
+  }
   if (!panel) {
-    return res.status(401).json({ error: 'Nieprawidłowe hasło.' });
+    return res.status(401).json({ error: loginRaw ? 'Nieprawidłowy login lub hasło.' : 'Nieprawidłowe hasło.' });
   }
   const token = crypto.randomBytes(24).toString('hex');
   store.sessions = store.sessions.filter((s) => s.panelId !== panel.id);
   store.sessions.push({ token, panelId: panel.id, createdAt: new Date().toISOString() });
   writeStore(store);
-  res.json({ token, panel: { id: panel.id, name: panel.name } });
+  res.json({ token, panel: publicPanel(panel) });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -393,6 +417,14 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/panels/managed', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const managed = (store.panels || []).filter((p) => p.createdBy === panel.id && !builtinPanelIds().has(p.id));
+  res.json(managed.map(publicPanel));
 });
 
 app.get('/api/panels', (req, res) => {
@@ -419,7 +451,7 @@ app.post('/api/panels', (req, res) => {
   }
   const id = uniquePanelId(store, name);
   const password = generatePanelPassword(allPanels(store));
-  const created: StoredPanel = { id, name, password };
+  const created: StoredPanel = { id, name, password, login: id, createdBy: panel.id };
   store.panels = [...(store.panels || []), created];
   if (survey) {
     const owners = [...(survey.ownerIds || [])];
@@ -431,9 +463,54 @@ app.post('/api/panels', (req, res) => {
   res.json({
     id,
     name,
+    login: id,
     password,
     survey: survey || undefined,
   });
+});
+
+app.post('/api/panels/:id/password', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const targetId = String(req.params.id || '');
+  if (builtinPanelIds().has(targetId)) {
+    return res.status(403).json({ error: 'Tego konta nie da się tu zresetować.' });
+  }
+  const target = (store.panels || []).find((p) => p.id === targetId);
+  if (!target || target.createdBy !== panel.id) {
+    return res.status(404).json({ error: 'Nie ma takiej osoby na Twojej liście.' });
+  }
+  const password = generatePanelPassword(allPanels(store));
+  target.password = password;
+  store.sessions = store.sessions.filter((s) => s.panelId !== target.id);
+  writeStore(store);
+  res.json({ id: target.id, name: target.name, login: panelLogin(target), password });
+});
+
+app.delete('/api/panels/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const targetId = String(req.params.id || '');
+  if (builtinPanelIds().has(targetId) || targetId === panel.id) {
+    return res.status(403).json({ error: 'Tego konta nie da się usunąć.' });
+  }
+  const target = (store.panels || []).find((p) => p.id === targetId);
+  if (!target || target.createdBy !== panel.id) {
+    return res.status(404).json({ error: 'Nie ma takiej osoby na Twojej liście.' });
+  }
+  store.panels = (store.panels || []).filter((p) => p.id !== targetId);
+  store.sessions = store.sessions.filter((s) => s.panelId !== targetId);
+  for (const survey of store.surveys) {
+    const owners = survey.ownerIds || [];
+    if (!owners.includes(targetId)) continue;
+    const next = owners.filter((id) => id !== targetId);
+    survey.ownerIds = next.length > 0 ? next : [panel.id];
+    survey.updatedAt = new Date().toISOString();
+  }
+  writeStore(store);
+  res.json({ success: true });
 });
 
 function isPreviewCode(code: string) {

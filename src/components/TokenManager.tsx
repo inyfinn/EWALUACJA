@@ -331,7 +331,7 @@ Dziękuję za Twój czas i pomoc!`;
       </div>
 
       {/* List of Tokens with Direct Links and One-Click Copy */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
+      <div className="bg-white rounded-3xl border border-slate-200/80 overflow-visible shadow-xs">
         <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-16 z-20 bg-white">
           <div>
             <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania ankietowanym</h3>
@@ -439,7 +439,7 @@ Dziękuję za Twój czas i pomoc!`;
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] font-mono text-slate-400 mt-1 truncate max-w-md">
+                      <p className="text-[11px] font-mono text-slate-400 mt-1 break-all">
                         {directLink}
                       </p>
                     </div>

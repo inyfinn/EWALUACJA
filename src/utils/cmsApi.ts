@@ -6,11 +6,14 @@ async function readJson(res: Response) {
   return res.json().catch(() => ({}));
 }
 
-export async function loginWithPassword(password: string): Promise<{ token: string; panel: { id: string; name: string } }> {
+export async function loginWithPassword(
+  password: string,
+  login = '',
+): Promise<{ token: string; panel: { id: string; name: string; login: string } }> {
   const res = await fetch(apiUrl('api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, login: login.trim() || undefined }),
   });
   const data = await readJson(res);
   if (!res.ok) throw new Error(data.error || 'Nieprawidłowe hasło.');
@@ -20,6 +23,7 @@ export async function loginWithPassword(password: string): Promise<{ token: stri
 export interface CmsPanel {
   id: string;
   name: string;
+  login?: string;
 }
 
 export async function fetchPanels(): Promise<CmsPanel[]> {
@@ -28,9 +32,16 @@ export async function fetchPanels(): Promise<CmsPanel[]> {
   return res.json();
 }
 
+export async function fetchManagedPanels(): Promise<CmsPanel[]> {
+  const res = await fetch(apiUrl('api/panels/managed'), { headers: authHeaders(false) });
+  if (!res.ok) throw new Error('Nie udało się pobrać listy osób, które dodałeś.');
+  return res.json();
+}
+
 export async function createPanelApi(name: string, surveyId?: string): Promise<{
   id: string;
   name: string;
+  login: string;
   password: string;
 }> {
   const res = await fetch(apiUrl('api/panels'), {
@@ -41,6 +52,30 @@ export async function createPanelApi(name: string, surveyId?: string): Promise<{
   const data = await readJson(res);
   if (!res.ok) throw new Error(data.error || 'Nie udało się utworzyć osoby z panelem.');
   return data;
+}
+
+export async function resetManagedPanelPassword(id: string): Promise<{
+  id: string;
+  name: string;
+  login: string;
+  password: string;
+}> {
+  const res = await fetch(apiUrl(`api/panels/${encodeURIComponent(id)}/password`), {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || 'Nie udało się wygenerować nowego hasła.');
+  return data;
+}
+
+export async function deleteManagedPanel(id: string): Promise<void> {
+  const res = await fetch(apiUrl(`api/panels/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+    headers: authHeaders(false),
+  });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || 'Nie udało się usunąć tej osoby.');
 }
 
 export async function fetchSurveys(): Promise<ManagedSurvey[]> {
