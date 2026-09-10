@@ -1,43 +1,36 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Eye, EyeOff, KeyRound, AlertCircle } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, KeyRound, AlertCircle } from 'lucide-react';
 import { DobraKaloriaMark } from './DobraKaloriaMark';
 import { InyfinnCopyright } from './InyfinnCopyright';
 
 interface AdminLoginViewProps {
-  onSuccess: () => void;
+  onSuccess: (password: string) => Promise<void> | void;
   onCancel: () => void;
 }
-
-const VALID_PASSWORDS = [
-  'kubara',
-  'kubara2025',
-  'krzysztof',
-  'wieczorek',
-  'admin',
-  '1234'
-];
 
 export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCancel }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = password.trim().toLowerCase();
-    
-    if (VALID_PASSWORDS.includes(clean)) {
-      setError(null);
-      onSuccess();
-    } else {
-      setError('Nieprawidłowe hasło organizatora. Sprawdź i spróbuj ponownie.');
+    setBusy(true);
+    setError(null);
+    try {
+      await onSuccess(password);
+    } catch (err: any) {
+      setError(err?.message || 'Nieprawidłowe hasło.');
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-dk-bg flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-dk-violet-soft">
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-[100px]">
           <DobraKaloriaMark className="h-16 w-auto max-w-[140px]" />
         </div>
 
@@ -49,17 +42,14 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
             Panel Organizatora
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Krzysztof Wieczorek • Kubara Sp. z o.o.
-          </p>
-          <p className="text-xs text-slate-600 mt-3 leading-relaxed">
-            Ten obszar zawiera kody, odpowiedzi i raport ewaluacji pracownika.
+            Kubara Sp. z o.o.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-dk-ink/70 mb-1.5">
-              Hasło organizatora:
+              Hasło
             </label>
             <div className="relative">
               <input
@@ -69,8 +59,9 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
                   setPassword(e.target.value);
                   if (error) setError(null);
                 }}
-                placeholder="Wpisz hasło (np. kubara)..."
+                placeholder="Hasło"
                 autoFocus
+                autoComplete="current-password"
                 className="w-full bg-dk-bg/60 border border-dk-violet-soft rounded-xl px-3.5 py-2.5 text-sm font-normal text-dk-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-dk-violet/40 pr-10"
               />
               <button
@@ -87,17 +78,15 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
                 <span>{error}</span>
               </div>
             )}
-            <p className="text-[11px] text-slate-400 mt-2">
-              Domyślne hasło dostępu: <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold">kubara</code>
-            </p>
           </div>
 
           <div className="pt-2 flex flex-col gap-2">
             <button
               type="submit"
-              className="w-full py-3 btn-dk-primary text-sm"
+              disabled={busy || !password.trim()}
+              className="w-full py-3 btn-dk-primary text-sm disabled:opacity-40"
             >
-              <span>Odblokuj Panel Organizatora</span>
+              <span>{busy ? 'Logowanie…' : 'Wejdź do panelu'}</span>
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
 

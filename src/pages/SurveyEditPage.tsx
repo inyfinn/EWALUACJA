@@ -1,7 +1,7 @@
 import { useOutletContext } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ManagedSurvey, SurveyField, SurveyQuestion } from '../types';
-import { updateSurveyApi } from '../utils/cmsApi';
+import { createTemplateApi, updateSurveyApi } from '../utils/cmsApi';
 import { LiveSurveyEditor } from '../components/LiveSurveyEditor';
 import { EvalQuestionsEditor } from '../components/EvalQuestionsEditor';
 import { resolveSurveyQuestions } from '../data/surveyQuestions';
@@ -27,6 +27,20 @@ export function SurveyEditPage() {
   }, [survey.id, survey.updatedAt]);
 
   const named = title.trim().length >= 2;
+
+  const saveAsTemplate = async (visibility: 'global' | 'private') => {
+    setBusy(true);
+    try {
+      await updateSurveyApi(survey.id, { title, description, slug, status, fields, questions });
+      await createTemplateApi({ visibility, surveyId: survey.id, title: title.trim() });
+      setStatusMsg(visibility === 'global' ? 'Zapisano szablon globalny (wszyscy mogą z niego korzystać).' : 'Zapisano szablon prywatny (tylko ten panel).');
+      await reload();
+    } catch (e: any) {
+      setStatusMsg(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async () => {
     if (!named) {
@@ -70,7 +84,7 @@ export function SurveyEditPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="mt-1 w-full rounded-2xl border border-dk-violet-soft px-3 py-2 text-sm">
               <option value="live">Opublikowana (można wypełniać)</option>
               <option value="draft">Szkic</option>
-              <option value="closed">Zamknięta</option>
+              <option value="closed">Wstrzymana</option>
             </select>
           </label>
         </div>
@@ -84,9 +98,17 @@ export function SurveyEditPage() {
         <LiveSurveyEditor fields={fields} onChange={setFields} />
       </div>
 
-      <button type="button" onClick={save} disabled={busy || !named} className="btn-dk-primary px-6 py-3 text-sm disabled:opacity-40">
-        {busy ? 'Zapisywanie…' : named ? 'Zapisz ankietę' : 'Wpisz nazwę, żeby zapisać'}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={save} disabled={busy || !named} className="btn-dk-primary px-6 py-3 text-sm disabled:opacity-40">
+          {busy ? 'Zapisywanie…' : named ? 'Zapisz ankietę' : 'Wpisz nazwę, żeby zapisać'}
+        </button>
+        <button type="button" onClick={() => saveAsTemplate('global')} disabled={busy || !named} className="btn-dk-ghost px-4 py-3 text-sm disabled:opacity-40">
+          Utwórz szablon globalny
+        </button>
+        <button type="button" onClick={() => saveAsTemplate('private')} disabled={busy || !named} className="btn-dk-soft px-4 py-3 text-sm disabled:opacity-40">
+          Utwórz szablon prywatny
+        </button>
+      </div>
       {statusMsg && <p className="text-xs font-semibold text-dk-ink">{statusMsg}</p>}
     </div>
   );

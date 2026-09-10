@@ -77,6 +77,7 @@ export interface ManagedSurvey {
   isBuiltinTemplate?: boolean;
   sourceTemplateId?: string;
   subject?: SurveySubject;
+  ownerIds?: string[];
 }
 
 export interface TrashSurveyItem {

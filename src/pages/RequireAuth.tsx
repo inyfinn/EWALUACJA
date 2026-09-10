@@ -1,12 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { clearSession, isOrganizerAuthed } from '../utils/authSession';
 
-export function isOrganizerAuthed(): boolean {
-  return typeof window !== 'undefined' && sessionStorage.getItem('kw_organizer_authed') === 'true';
-}
+export { isOrganizerAuthed } from '../utils/authSession';
 
 export function setOrganizerAuthed(value: boolean) {
-  if (value) sessionStorage.setItem('kw_organizer_authed', 'true');
-  else sessionStorage.removeItem('kw_organizer_authed');
+  if (!value) clearSession();
 }
 
 export function RequireAuth() {

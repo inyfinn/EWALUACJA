@@ -1,14 +1,14 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SURVEY_TEMPLATES, templateToDraft } from '../data/surveyTemplates';
-import { createSurveyApi, duplicateSurveyApi, fetchSurveys } from '../utils/cmsApi';
+import { CmsTemplate, createSurveyApi, duplicateSurveyApi, fetchSurveys, fetchTemplates } from '../utils/cmsApi';
 import { ManagedSurvey } from '../types';
 
 export function NewSurveyPage() {
   const navigate = useNavigate();
-  const [title, setTitle] = useState(SURVEY_TEMPLATES[0].title);
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [templateId, setTemplateId] = useState<string>(SURVEY_TEMPLATES[0].id);
+  const [templateId, setTemplateId] = useState('');
+  const [templates, setTemplates] = useState<CmsTemplate[]>([]);
   const [duplicateFrom, setDuplicateFrom] = useState('');
   const [existing, setExisting] = useState<ManagedSurvey[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -16,9 +16,14 @@ export function NewSurveyPage() {
 
   useEffect(() => {
     fetchSurveys().then(setExisting).catch(() => setExisting([]));
+    fetchTemplates().then((list) => {
+      setTemplates(list);
+      if (list[0]) setTemplateId(list[0].id);
+    }).catch(() => setTemplates([]));
   }, []);
 
   const named = title.trim().length >= 2;
+  const selected = templates.find((t) => t.id === templateId);
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -31,23 +36,23 @@ export function NewSurveyPage() {
     try {
       if (duplicateFrom) {
         const copy = await duplicateSurveyApi(duplicateFrom, title.trim());
-        if (description.trim()) {
-          // title already set; description via remaining on copy — editor can change
-        }
         navigate(`/cms/surveys/${copy.id}/edit`);
         return;
       }
-      const tpl = SURVEY_TEMPLATES.find((t) => t.id === templateId) || SURVEY_TEMPLATES[0];
-      const draft = templateToDraft(tpl, title, description);
+      const tpl = selected;
+      if (!tpl) {
+        setError('Wybierz szablon.');
+        return;
+      }
       const survey = await createSurveyApi({
-        title: draft.title!,
-        description: draft.description,
-        engine: draft.engine,
+        title: title.trim(),
+        description: description.trim() || tpl.description,
+        engine: tpl.engine,
         status: 'draft',
-        fields: draft.fields,
-        questions: draft.questions,
-        sourceTemplateId: draft.sourceTemplateId,
-        subject: draft.subject,
+        fields: tpl.fields,
+        questions: tpl.questions || [],
+        sourceTemplateId: tpl.id,
+        subject: tpl.subject,
       });
       navigate(`/cms/surveys/${survey.id}/edit`);
     } catch (err: any) {
@@ -57,24 +62,16 @@ export function NewSurveyPage() {
     }
   };
 
+  const globalTpl = templates.filter((t) => t.visibility === 'global');
+  const privateTpl = templates.filter((t) => t.visibility === 'private');
+
   return (
     <form onSubmit={handleCreate} className="max-w-3xl space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Nowa ankieta</h2>
         <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          Najpierw <strong>nazywasz ankietę</strong> (np. „Ewaluacja Krzysztofa Wieczorka”). Tag po lewej i tak pokazuje, że to ewaluacja pracownika. Potem wybierasz gotowy zestaw pytań
-          albo kopiujesz już zapisaną. Na następnym ekranie edytujesz całą treść tak, jak ją widzi respondent, w tym opcje pozytywne, neutralne i negatywne.
+          Najpierw nazywasz ankietę, potem wybierasz szablon (globalny dla wszystkich albo swój prywatny).
         </p>
-      </div>
-
-      <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 text-sm text-indigo-950 space-y-2 leading-relaxed">
-        <p className="font-semibold">Kolejność - nic nie zgadujesz:</p>
-        <ol className="list-decimal list-inside space-y-1">
-          <li>Wpisz nazwę osoby (np. „Ewaluacja Krzysztofa Wieczorka”). Bez tego przycisk na dole jest nieaktywny.</li>
-          <li>Wybierz rodzaj ankiety albo „zrób kopię” już zapisanej.</li>
-          <li>Otworzy się podgląd na żywo: klikasz w treść pytania i zmieniasz. Opcje dodajesz przyciskiem, nie przecinkami.</li>
-          <li>Zapisz. Potem w zakładce Zarządzaj rozsyłasz wypełnianie.</li>
-        </ol>
       </div>
 
       <label className="block bg-white rounded-3xl border border-slate-200 p-5">
@@ -100,17 +97,14 @@ export function NewSurveyPage() {
       </label>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">2. Wybierz rodzaj ankiety albo kopię</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">2. Szablon globalny</p>
         <div className="grid gap-3">
-          {SURVEY_TEMPLATES.map((tpl) => (
+          {globalTpl.map((tpl) => (
             <button
               key={tpl.id}
               type="button"
               onClick={() => {
-                const prev = SURVEY_TEMPLATES.find((t) => t.id === templateId);
-                if (!title.trim() || (prev && title.trim() === prev.title)) {
-                  setTitle(tpl.title);
-                }
+                if (!title.trim() || (selected && title.trim() === selected.title)) setTitle(tpl.title);
                 setTemplateId(tpl.id);
                 setDuplicateFrom('');
               }}
@@ -121,30 +115,57 @@ export function NewSurveyPage() {
               }`}
             >
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
-                  Gotowy zestaw
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Globalny
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                  {tpl.subjectLabel}
+                  {tpl.subjectLabel || tpl.engine}
                 </span>
               </div>
-              <div className="font-bold text-slate-900 text-sm">{tpl.title}</div>
+              <div className="font-semibold text-slate-900 text-sm">{tpl.title}</div>
               <div className="text-xs text-slate-600 mt-1">{tpl.blurb}</div>
             </button>
           ))}
         </div>
       </div>
 
+      {privateTpl.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Twoje szablony prywatne</p>
+          <div className="grid gap-3">
+            {privateTpl.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => {
+                  if (!title.trim() || (selected && title.trim() === selected.title)) setTitle(tpl.title);
+                  setTemplateId(tpl.id);
+                  setDuplicateFrom('');
+                }}
+                className={`text-left p-4 rounded-2xl border cursor-pointer ${
+                  templateId === tpl.id && !duplicateFrom
+                    ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-500/20'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-dk-violet-soft text-dk-violet-text">
+                  Prywatny
+                </span>
+                <div className="font-semibold text-slate-900 text-sm mt-1">{tpl.title}</div>
+                <div className="text-xs text-slate-600 mt-1">{tpl.blurb}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {existing.length > 0 && (
         <label className="block bg-white rounded-3xl border border-slate-200 p-5">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Albo duplikuj już zapisaną ankietę</span>
-          <p className="text-xs text-slate-500 mt-1 mb-2">
-            Jeśli przerobiłeś zestaw i zapisałeś, tu robisz z niego kolejną kopię (np. na następny miesiąc).
-          </p>
           <select
             value={duplicateFrom}
             onChange={(e) => setDuplicateFrom(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
           >
             <option value="">Nie kopiuj - użyj zestawu powyżej</option>
             {existing.map((s) => (

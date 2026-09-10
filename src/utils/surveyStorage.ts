@@ -2,6 +2,7 @@ import { SurveyQuestion, SurveyResponse, VoterToken, DimensionStats, DimensionKe
 import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
 import { apiUrl } from './apiClient';
 import { fillUrl } from './routerBase';
+import { authHeaders } from './authSession';
 
 const STORAGE_KEYS = {
   TOKENS: 'kubara_eval_tokens_v6',
@@ -125,7 +126,7 @@ export async function importResponseFromFileAsync(response: SurveyResponse): Pro
   try {
     const res = await fetch(apiUrl('api/responses/import'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({
         format: 'kubara-ewaluacja-360',
         version: 1,
@@ -150,7 +151,7 @@ export async function addCustomTokenAsync(label: string, surveyId?: string): Pro
   try {
     const res = await fetch(apiUrl('api/tokens'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ label, surveyId }),
     });
     if (res.ok) {
@@ -166,7 +167,7 @@ export async function addCustomTokenAsync(label: string, surveyId?: string): Pro
 
 export async function deleteSingleResponseAsync(responseId: string): Promise<void> {
   try {
-    await fetch(apiUrl(`api/responses/${responseId}`), { method: 'DELETE' });
+    await fetch(apiUrl(`api/responses/${responseId}`), { method: 'DELETE', headers: authHeaders(false) });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -188,7 +189,7 @@ export async function toggleExcludeResponseAsync(responseId: string, excluded?: 
   try {
     await fetch(apiUrl(`api/responses/${responseId}/exclude`), {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ excluded }),
     });
     await fetchResponsesFromServer();
@@ -208,7 +209,7 @@ export async function toggleExcludeResponseAsync(responseId: string, excluded?: 
 
 export async function resetTokenAsync(tokenId: string): Promise<void> {
   try {
-    await fetch(apiUrl(`api/tokens/${tokenId}/reset`), { method: 'POST' });
+    await fetch(apiUrl(`api/tokens/${tokenId}/reset`), { method: 'POST', headers: authHeaders(false) });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -229,7 +230,7 @@ export async function resetTokenAsync(tokenId: string): Promise<void> {
 
 export async function deleteTokenAsync(id: string): Promise<void> {
   try {
-    await fetch(apiUrl(`api/tokens/${id}`), { method: 'DELETE' });
+    await fetch(apiUrl(`api/tokens/${id}`), { method: 'DELETE', headers: authHeaders(false) });
     await fetchTokensFromServer();
   } catch (e) {
     console.warn('Failed to delete token on server, deleting locally:', e);
@@ -239,7 +240,7 @@ export async function deleteTokenAsync(id: string): Promise<void> {
 
 export async function clearAllResponsesAsync(): Promise<void> {
   try {
-    await fetch(apiUrl('api/clear-responses'), { method: 'POST' });
+    await fetch(apiUrl('api/clear-responses'), { method: 'POST', headers: authHeaders() });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {

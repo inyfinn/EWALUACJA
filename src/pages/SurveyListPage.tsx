@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BarChart3, Copy, ExternalLink, FileEdit, Link2, Plus, Trash2 } from 'lucide-react';
+import { BarChart3, Copy, ExternalLink, FileEdit, Link2, Plus } from 'lucide-react';
 import { ManagedSurvey } from '../types';
-import { deleteSurveyApi, duplicateSurveyApi, fetchSurveys } from '../utils/cmsApi';
+import { deleteSurveyApi, duplicateSurveyApi, fetchSurveys, setSurveyStatusApi } from '../utils/cmsApi';
 import { fillUrl } from '../utils/routerBase';
 import { CmsHomeHint } from './CmsLayout';
+import { SurveyStatusBar } from '../components/SurveyStatusBar';
 
 function engineLabel(survey: ManagedSurvey) {
   if (survey.engine === '360') return 'Ewaluacja pracownika';
@@ -87,13 +88,12 @@ export function SurveyListPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h3 className="font-semibold text-dk-ink text-lg truncate">{survey.title}</h3>
-                  <span className={`text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                    survey.archived ? 'bg-amber-100 text-amber-800' :
-                    survey.status === 'live' ? 'bg-green-100 text-green-800' :
-                    survey.status === 'draft' ? 'bg-dk-violet-soft text-dk-violet-text' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {survey.archived ? 'Zarchiwizowana' : survey.status === 'live' ? 'Opublikowana' : survey.status === 'draft' ? 'Szkic' : 'Zamknięta'}
-                  </span>
+                  <SurveyStatusBar
+                    survey={survey}
+                    onPublish={async () => { await setSurveyStatusApi(survey.id, 'live'); await load(); }}
+                    onPause={async () => { await setSurveyStatusApi(survey.id, 'closed'); await load(); }}
+                    onDelete={() => handleDelete(survey)}
+                  />
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-dk-violet-soft text-dk-violet-text">
                     {engineLabel(survey)}
                   </span>
@@ -121,16 +121,13 @@ export function SurveyListPage() {
                 <a href={fillUrl(survey.slug)} className="btn-dk-ghost">
                   <ExternalLink className="w-3.5 h-3.5" /> Wypełnij
                 </a>
-                <button type="button" onClick={() => handleDelete(survey)} className="btn-dk-danger">
-                  <Trash2 className="w-3.5 h-3.5" /> Do kosza
-                </button>
               </div>
             </div>
           </article>
         ))}
         {surveys.length === 0 && (
           <div className="bg-white rounded-3xl border border-dashed border-dk-violet-soft p-10 text-center text-dk-ink/50 text-sm">
-            Nie ma jeszcze ankiet. Kliknij „Nowa ankieta”.
+            Nie ma jeszcze ankiet. Kliknij „Nowa ankieta” i wybierz szablon.
           </div>
         )}
       </div>

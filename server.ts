@@ -1,8 +1,10 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { DEFAULT_QUESTIONS } from './src/data/surveyQuestions.ts';
+import { SURVEY_TEMPLATES } from './src/data/surveyTemplates.ts';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -13,6 +15,23 @@ app.use(express.json({ limit: '12mb' }));
 const DATA_FILE = process.env.DATA_FILE || path.join(process.cwd(), 'data', 'survey-store.json');
 
 const DEFAULT_SURVEY_ID = 'survey_ewaluacja_360';
+
+const PANELS = [
+  { id: 'karolina', name: 'Karolina', password: 'karolina2026#' },
+  { id: 'krzysztof', name: 'Krzysztof', password: 'krzysztof2026#' },
+  { id: 'szymon', name: 'Szymon', password: 'szymon2026#' },
+  { id: 'ewa', name: 'Ewa', password: 'ewa2026#' },
+  { id: 'aneta', name: 'Aneta', password: 'aneta2026#' },
+] as const;
+
+function normPass(value: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function panelByPassword(password: string) {
+  const needle = normPass(password);
+  return PANELS.find((p) => normPass(p.password) === needle) || null;
+}
 
 interface SurveyField {
   id: string;
@@ -39,6 +58,7 @@ interface ManagedSurvey {
   sourceTemplateId?: string;
   subject?: string;
   questions?: any[];
+  ownerIds?: string[];
 }
 
 interface VoterToken {
@@ -78,6 +98,27 @@ interface TrashResponseItem {
   surveySnapshot: ManagedSurvey;
 }
 
+interface StoredTemplate {
+  id: string;
+  title: string;
+  blurb: string;
+  visibility: 'global' | 'private';
+  ownerId: string;
+  builtin?: boolean;
+  subject?: string;
+  subjectLabel?: string;
+  engine: 'generic' | '360';
+  description: string;
+  fields: SurveyField[];
+  questions?: any[];
+}
+
+interface StoreSession {
+  token: string;
+  panelId: string;
+  createdAt: string;
+}
+
 interface StoreData {
   surveys: ManagedSurvey[];
   tokens: VoterToken[];
@@ -86,6 +127,8 @@ interface StoreData {
     surveys: TrashSurveyItem[];
     responses: TrashResponseItem[];
   };
+  templates: StoredTemplate[];
+  sessions: StoreSession[];
 }
 
 function slugify(input: string): string {
@@ -109,6 +152,23 @@ function uniqueSlug(store: StoreData, desired: string, exceptId?: string): strin
   return slug;
 }
 
+function seedBuiltinTemplates(): StoredTemplate[] {
+  return SURVEY_TEMPLATES.map((t) => ({
+    id: t.id,
+    title: t.title,
+    blurb: t.blurb,
+    visibility: 'global' as const,
+    ownerId: 'system',
+    builtin: true,
+    subject: t.subject,
+    subjectLabel: t.subjectLabel,
+    engine: t.engine,
+    description: t.description,
+    fields: JSON.parse(JSON.stringify(t.fields)),
+    questions: t.questions ? JSON.parse(JSON.stringify(t.questions)) : [],
+  }));
+}
+
 function default360Survey(): ManagedSurvey {
   const now = new Date().toISOString();
   return {
@@ -122,6 +182,7 @@ function default360Survey(): ManagedSurvey {
     questions: JSON.parse(JSON.stringify(DEFAULT_QUESTIONS)),
     createdAt: now,
     updatedAt: now,
+    ownerIds: ['krzysztof', 'karolina'],
   };
 }
 
@@ -141,6 +202,8 @@ function getDefaultStore(): StoreData {
     ],
     responses: [],
     trash: { surveys: [], responses: [] },
+    templates: seedBuiltinTemplates(),
+    sessions: [],
   };
 }
 
@@ -153,10 +216,19 @@ function migrateStore(parsed: any): StoreData {
       surveys: Array.isArray(parsed.trash?.surveys) ? parsed.trash.surveys : [],
       responses: Array.isArray(parsed.trash?.responses) ? parsed.trash.responses : [],
     },
+    templates: Array.isArray(parsed.templates) ? parsed.templates : [],
+    sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
   };
   if (store.surveys.length === 0) {
     store.surveys = [default360Survey()];
   }
+  const builtins = seedBuiltinTemplates();
+  builtins.forEach((tpl) => {
+    if (!store.templates.some((t) => t.id === tpl.id && t.builtin)) {
+      store.templates = store.templates.filter((t) => t.id !== tpl.id);
+      store.templates.push(tpl);
+    }
+  });
   store.surveys.forEach((s) => {
     const genericName = !s.title
       || s.title === 'Ewaluacja pracownika'
@@ -171,6 +243,15 @@ function migrateStore(parsed: any): StoreData {
     }
     if ((!s.questions || !s.questions.length) && (s.engine === '360' || s.id === DEFAULT_SURVEY_ID)) {
       s.questions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+    }
+    if (!Array.isArray(s.ownerIds) || s.ownerIds.length === 0) {
+      const isKrzysztofEval = s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /ewaluacja krzysztofa/i.test(s.title || '');
+      s.ownerIds = isKrzysztofEval ? ['krzysztof', 'karolina'] : ['krzysztof'];
+    } else {
+      const isKrzysztofEval = s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /ewaluacja krzysztofa/i.test(s.title || '');
+      if (isKrzysztofEval) {
+        s.ownerIds = Array.from(new Set([...s.ownerIds, 'krzysztof', 'karolina']));
+      }
     }
   });
   store.tokens.forEach(t => {
@@ -212,6 +293,56 @@ function writeStore(data: StoreData) {
   }
 }
 
+function panelFromRequest(req: express.Request, store: StoreData) {
+  const header = String(req.headers.authorization || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return null;
+  const session = store.sessions.find((s) => s.token === token);
+  if (!session) return null;
+  return PANELS.find((p) => p.id === session.panelId) || null;
+}
+
+function requirePanel(req: express.Request, res: express.Response) {
+  const store = readStore();
+  const panel = panelFromRequest(req, store);
+  if (!panel) {
+    res.status(401).json({ error: 'Sesja wygasła. Wejdź ponownie hasłem.' });
+    return null;
+  }
+  return { store, panel };
+}
+
+function canAccessSurvey(survey: ManagedSurvey, panelId: string) {
+  return (survey.ownerIds || []).includes(panelId);
+}
+
+function ownedSurveys(store: StoreData, panelId: string) {
+  return store.surveys.filter((s) => canAccessSurvey(s, panelId));
+}
+
+app.post('/api/auth/login', (req, res) => {
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const panel = panelByPassword(password);
+  if (!panel) {
+    return res.status(401).json({ error: 'Nieprawidłowe hasło.' });
+  }
+  const store = readStore();
+  const token = crypto.randomBytes(24).toString('hex');
+  store.sessions = store.sessions.filter((s) => s.panelId !== panel.id);
+  store.sessions.push({ token, panelId: panel.id, createdAt: new Date().toISOString() });
+  writeStore(store);
+  res.json({ token, panel: { id: panel.id, name: panel.name } });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const store = readStore();
+  const header = String(req.headers.authorization || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  store.sessions = store.sessions.filter((s) => s.token !== token);
+  writeStore(store);
+  res.json({ success: true });
+});
+
 // -------------------------------------------------------------
 // API Endpoints
 // -------------------------------------------------------------
@@ -250,14 +381,21 @@ function restoreSurveyRecord(store: StoreData, survey: ManagedSurvey, tokens: Vo
   return restored;
 }
 
-app.get('/api/trash', (_req, res) => {
-  const store = readStore();
-  res.json(store.trash);
+app.get('/api/trash', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  res.json({
+    surveys: store.trash.surveys.filter((item) => canAccessSurvey(item.survey, panel.id)),
+    responses: store.trash.responses.filter((item) => canAccessSurvey(item.surveySnapshot, panel.id)),
+  });
 });
 
 app.post('/api/trash/surveys/:id/restore', (req, res) => {
-  const store = readStore();
-  const idx = store.trash.surveys.findIndex(item => item.survey.id === req.params.id);
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const idx = store.trash.surveys.findIndex(item => item.survey.id === req.params.id && canAccessSurvey(item.survey, panel.id));
   if (idx < 0) return res.status(404).json({ error: 'Nie ma tej ankiety w koszu.' });
   const item = store.trash.surveys[idx];
   restoreSurveyRecord(store, item.survey, item.tokens, false);
@@ -274,8 +412,10 @@ app.post('/api/trash/surveys/:id/restore', (req, res) => {
 });
 
 app.post('/api/trash/responses/:id/restore', (req, res) => {
-  const store = readStore();
-  const idx = store.trash.responses.findIndex(item => item.response.id === req.params.id);
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const idx = store.trash.responses.findIndex(item => item.response.id === req.params.id && canAccessSurvey(item.surveySnapshot, panel.id));
   if (idx < 0) return res.status(404).json({ error: 'Nie ma tej odpowiedzi w koszu.' });
   const item = store.trash.responses[idx];
   const live = store.surveys.find(s => s.id === item.surveyId);
@@ -309,23 +449,28 @@ app.post('/api/trash/responses/:id/restore', (req, res) => {
 });
 
 app.delete('/api/trash/surveys/:id', (req, res) => {
-  const store = readStore();
-  store.trash.surveys = store.trash.surveys.filter(item => item.survey.id !== req.params.id);
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  store.trash.surveys = store.trash.surveys.filter(item => !(item.survey.id === req.params.id && canAccessSurvey(item.survey, panel.id)));
   store.trash.responses = store.trash.responses.filter(item => item.surveyId !== req.params.id);
   writeStore(store);
   res.json({ success: true });
 });
 
 app.delete('/api/trash/responses/:id', (req, res) => {
-  const store = readStore();
-  store.trash.responses = store.trash.responses.filter(item => item.response.id !== req.params.id);
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  store.trash.responses = store.trash.responses.filter(item => !(item.response.id === req.params.id && canAccessSurvey(item.surveySnapshot, panel.id)));
   writeStore(store);
   res.json({ success: true });
 });
 
-app.get('/api/surveys', (_req, res) => {
-  const store = readStore();
-  res.json(store.surveys);
+app.get('/api/surveys', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  res.json(ownedSurveys(ctx.store, ctx.panel.id));
 });
 
 app.get('/api/surveys/by-slug/:slug', (req, res) => {
@@ -344,19 +489,22 @@ app.get('/api/surveys/by-slug/:slug', (req, res) => {
 });
 
 app.get('/api/surveys/:id', (req, res) => {
-  const store = readStore();
-  const survey = store.surveys.find(s => s.id === req.params.id);
-  if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const survey = ctx.store.surveys.find(s => s.id === req.params.id);
+  if (!survey || !canAccessSurvey(survey, ctx.panel.id)) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
   res.json(survey);
 });
 
 app.post('/api/surveys', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const body = req.body || {};
   const title = typeof body.title === 'string' ? body.title.trim() : '';
   if (title.length < 2) {
     return res.status(400).json({ error: 'Najpierw wpisz nazwę ankiety (minimum 2 znaki). Bez nazwy nie da się iść dalej.' });
   }
-  const store = readStore();
   const now = new Date().toISOString();
   const survey: ManagedSurvey = {
     id: `survey_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -372,6 +520,7 @@ app.post('/api/surveys', (req, res) => {
     sourceTemplateId: typeof body.sourceTemplateId === 'string' ? body.sourceTemplateId : undefined,
     subject: typeof body.subject === 'string' ? body.subject : undefined,
     questions: Array.isArray(body.questions) ? body.questions : [],
+    ownerIds: [panel.id],
   };
   store.surveys.push(survey);
   writeStore(store);
@@ -379,9 +528,11 @@ app.post('/api/surveys', (req, res) => {
 });
 
 app.post('/api/surveys/:id/duplicate', (req, res) => {
-  const store = readStore();
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const source = store.surveys.find(s => s.id === req.params.id);
-  if (!source) return res.status(404).json({ error: 'Nie ma takiej ankiety do skopiowania.' });
+  if (!source || !canAccessSurvey(source, panel.id)) return res.status(404).json({ error: 'Nie ma takiej ankiety do skopiowania.' });
   const requestedTitle = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   const title = requestedTitle || `${source.title} (kopia)`;
   const now = new Date().toISOString();
@@ -394,6 +545,7 @@ app.post('/api/surveys/:id/duplicate', (req, res) => {
     archived: false,
     createdAt: now,
     updatedAt: now,
+    ownerIds: [panel.id],
   };
   store.surveys.push(copy);
   writeStore(store);
@@ -401,9 +553,11 @@ app.post('/api/surveys/:id/duplicate', (req, res) => {
 });
 
 app.put('/api/surveys/:id', (req, res) => {
-  const store = readStore();
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const survey = store.surveys.find(s => s.id === req.params.id);
-  if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  if (!survey || !canAccessSurvey(survey, panel.id)) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
   const body = req.body || {};
   if (typeof body.title === 'string') {
     if (!body.title.trim()) {
@@ -427,9 +581,11 @@ app.put('/api/surveys/:id', (req, res) => {
 
 app.delete('/api/surveys/:id', (req, res) => {
   const { id } = req.params;
-  const store = readStore();
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const survey = store.surveys.find(s => s.id === id);
-  if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  if (!survey || !canAccessSurvey(survey, panel.id)) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
 
   const relatedResponses = store.responses.filter(r => r.surveyId === id);
   const relatedTokens = store.tokens.filter(t => t.surveyId === id);
@@ -457,18 +613,68 @@ app.delete('/api/surveys/:id', (req, res) => {
   res.json({ success: true, trashed: true });
 });
 
+app.get('/api/templates', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const list = store.templates.filter((t) => t.visibility === 'global' || t.ownerId === panel.id);
+  res.json(list);
+});
+
+app.post('/api/templates', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const visibility = req.body?.visibility === 'private' ? 'private' : 'global';
+  const surveyId = typeof req.body?.surveyId === 'string' ? req.body.surveyId : '';
+  const survey = store.surveys.find((s) => s.id === surveyId);
+  if (!survey || !canAccessSurvey(survey, panel.id)) {
+    return res.status(400).json({ error: 'Najpierw zapisz ankietę, potem zrób z niej szablon.' });
+  }
+  const title = (typeof req.body?.title === 'string' && req.body.title.trim()) || survey.title;
+  const tpl: StoredTemplate = {
+    id: `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    title,
+    blurb: survey.description || title,
+    visibility,
+    ownerId: panel.id,
+    builtin: false,
+    subject: survey.subject,
+    subjectLabel: visibility === 'global' ? 'Globalny' : 'Prywatny',
+    engine: survey.engine,
+    description: survey.description || '',
+    fields: JSON.parse(JSON.stringify(survey.fields || [])),
+    questions: JSON.parse(JSON.stringify(survey.questions || [])),
+  };
+  store.templates.push(tpl);
+  writeStore(store);
+  res.json(tpl);
+});
+
 app.get('/api/tokens', (req, res) => {
   const store = readStore();
   const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
-  res.json(surveyId ? store.tokens.filter(t => t.surveyId === surveyId) : store.tokens);
+  if (surveyId) {
+    return res.json(store.tokens.filter(t => t.surveyId === surveyId));
+  }
+  const panel = panelFromRequest(req, store);
+  if (!panel) return res.json([]);
+  const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
+  res.json(store.tokens.filter((t) => t.surveyId && ids.has(t.surveyId)));
 });
 
 app.post('/api/tokens', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { label, surveyId } = req.body || {};
-  const store = readStore();
   const resolvedSurveyId = typeof surveyId === 'string' && surveyId
     ? surveyId
-    : (store.surveys[0]?.id || DEFAULT_SURVEY_ID);
+    : (ownedSurveys(store, panel.id)[0]?.id || '');
+  const parent = store.surveys.find((s) => s.id === resolvedSurveyId);
+  if (!parent || !canAccessSurvey(parent, panel.id)) {
+    return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+  }
 
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let rand = '';
@@ -492,10 +698,16 @@ app.post('/api/tokens', (req, res) => {
 });
 
 app.delete('/api/tokens/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { id } = req.params;
-  const store = readStore();
   const token = store.tokens.find(t => t.id === id);
   if (token) {
+    const parent = store.surveys.find((s) => s.id === token.surveyId);
+    if (parent && !canAccessSurvey(parent, panel.id)) {
+      return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
+    }
     // Also remove associated response if any
     store.responses = store.responses.filter(r => r.id !== token.responseId && r.tokenUsed !== token.code);
   }
@@ -505,10 +717,16 @@ app.delete('/api/tokens/:id', (req, res) => {
 });
 
 app.post('/api/tokens/:id/reset', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { id } = req.params;
-  const store = readStore();
   const token = store.tokens.find(t => t.id === id);
   if (!token) {
+    return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
+  }
+  const parent = store.surveys.find((s) => s.id === token.surveyId);
+  if (parent && !canAccessSurvey(parent, panel.id)) {
     return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
   }
 
@@ -534,10 +752,16 @@ app.get('/api/responses', (req, res) => {
 });
 
 app.delete('/api/responses/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { id } = req.params;
-  const store = readStore();
   const resp = store.responses.find(r => r.id === id);
   if (!resp) return res.status(404).json({ success: false, error: 'Odpowiedź nie istnieje.' });
+  const liveParent = store.surveys.find(s => s.id === resp.surveyId);
+  if (liveParent && !canAccessSurvey(liveParent, panel.id)) {
+    return res.status(404).json({ success: false, error: 'Odpowiedź nie istnieje.' });
+  }
 
   const parent = store.surveys.find(s => s.id === resp.surveyId)
     || store.trash.surveys.find(t => t.survey.id === resp.surveyId)?.survey;
@@ -574,9 +798,11 @@ app.delete('/api/responses/:id', (req, res) => {
 });
 
 app.patch('/api/responses/:id/exclude', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store } = ctx;
   const { id } = req.params;
   const { excluded } = req.body || {};
-  const store = readStore();
   const resp = store.responses.find(r => r.id === id);
   
   if (!resp) {
@@ -637,6 +863,8 @@ function upsertImportedResponse(store: StoreData, response: SurveyResponse) {
 }
 
 app.post('/api/responses/import', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
   const imported = normalizeImportedResponse(req.body);
   if (!imported) {
     return res.status(400).json({
@@ -645,14 +873,16 @@ app.post('/api/responses/import', (req, res) => {
     });
   }
 
-  const store = readStore();
+  const { store } = ctx;
   upsertImportedResponse(store, imported);
   writeStore(store);
   res.json({ success: true, response: imported });
 });
 
-app.get('/api/store/export', (_req, res) => {
-  const store = readStore();
+app.get('/api/store/export', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const store = ctx.store;
   res.json({
     format: 'kubara-ewaluacja-360-store',
     version: 1,
@@ -723,9 +953,15 @@ app.post('/api/responses', (req, res) => {
 });
 
 app.post('/api/clear-responses', (req, res) => {
-  const store = readStore();
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const surveyId = (req.body && req.body.surveyId) || req.query.surveyId;
   if (surveyId) {
+    const parent = store.surveys.find((s) => s.id === surveyId);
+    if (!parent || !canAccessSurvey(parent, panel.id)) {
+      return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+    }
     store.responses = store.responses.filter(r => r.surveyId !== surveyId);
     store.tokens.forEach(t => {
       if (t.surveyId === surveyId) {
@@ -735,11 +971,14 @@ app.post('/api/clear-responses', (req, res) => {
       }
     });
   } else {
-    store.responses = [];
-    store.tokens.forEach(t => {
-      t.used = false;
-      delete t.usedAt;
-      delete t.responseId;
+    const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
+    store.responses = store.responses.filter((r) => !r.surveyId || !ids.has(r.surveyId));
+    store.tokens.forEach((t) => {
+      if (t.surveyId && ids.has(t.surveyId)) {
+        t.used = false;
+        delete t.usedAt;
+        delete t.responseId;
+      }
     });
   }
   writeStore(store);

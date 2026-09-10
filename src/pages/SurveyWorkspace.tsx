@@ -1,12 +1,14 @@
 import { useEffect, useState, ReactNode } from 'react';
-import { NavLink, Outlet, useParams, Link } from 'react-router-dom';
+import { NavLink, Outlet, useParams, Link, useNavigate } from 'react-router-dom';
 import { BarChart3, ExternalLink, FileEdit, Link2 } from 'lucide-react';
 import { ManagedSurvey } from '../types';
-import { fetchSurvey } from '../utils/cmsApi';
+import { deleteSurveyApi, fetchSurvey, setSurveyStatusApi } from '../utils/cmsApi';
 import { fillUrl } from '../utils/routerBase';
+import { SurveyStatusBar } from '../components/SurveyStatusBar';
 
 export function SurveyWorkspace() {
   const { surveyId } = useParams();
+  const navigate = useNavigate();
   const [survey, setSurvey] = useState<ManagedSurvey | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +51,19 @@ export function SurveyWorkspace() {
     <div className="space-y-5">
       <div>
         <Link to="/cms" className="text-xs font-medium text-dk-violet-text hover:underline">← Wszystkie ankiety</Link>
-        <h2 className="text-xl sm:text-2xl font-semibold tracking-tight mt-1">{survey.title}</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-1">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">{survey.title}</h2>
+          <SurveyStatusBar
+            survey={survey}
+            onPublish={async () => { await setSurveyStatusApi(survey.id, 'live'); await reload(); }}
+            onPause={async () => { await setSurveyStatusApi(survey.id, 'closed'); await reload(); }}
+            onDelete={async () => {
+              if (!window.confirm(`Przenieść „${survey.title}” do kosza?`)) return;
+              await deleteSurveyApi(survey.id);
+              navigate('/cms');
+            }}
+          />
+        </div>
         <p className="text-xs text-slate-500 font-mono mt-1 break-all">{fillUrl(survey.slug)}</p>
       </div>
       <div className="flex items-center gap-2 overflow-x-auto pb-1">

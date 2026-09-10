@@ -60,7 +60,7 @@ export function FillPage() {
       <FillShell>
         <div className="flex items-center justify-center p-6 min-h-[70vh]">
           <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">
-            {survey.archived ? 'Ta ankieta jest zarchiwizowana i nie przyjmuje odpowiedzi.' : 'Ta ankieta jest jeszcze szkicem i nie przyjmuje odpowiedzi.'}
+            {survey.archived ? 'Ta ankieta jest zarchiwizowana i nie przyjmuje odpowiedzi.' : 'Ta ankieta jest szkicem i nie przyjmuje odpowiedzi.'}
           </div>
         </div>
       </FillShell>
@@ -71,7 +71,7 @@ export function FillPage() {
     return (
       <FillShell>
         <div className="flex items-center justify-center p-6 min-h-[70vh]">
-          <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">Ta ankieta jest zamknięta.</div>
+            <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">Ta ankieta jest wstrzymana i nie przyjmuje odpowiedzi.</div>
         </div>
       </FillShell>
     );
