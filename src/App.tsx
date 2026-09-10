@@ -9,6 +9,7 @@ import { SurveyEditPage } from './pages/SurveyEditPage';
 import { SurveyLinksPage } from './pages/SurveyLinksPage';
 import { SurveyResultsPage } from './pages/SurveyResultsPage';
 import { FillPage } from './pages/FillPage';
+import { TrashPage } from './pages/TrashPage';
 import { LoginPage } from './pages/LoginPage';
 
 export function App() {
@@ -21,6 +22,7 @@ export function App() {
           <Route path="/cms" element={<CmsLayout />}>
             <Route index element={<SurveyListPage />} />
             <Route path="new" element={<NewSurveyPage />} />
+            <Route path="trash" element={<TrashPage />} />
             <Route path="surveys/:surveyId" element={<SurveyWorkspace />}>
               <Route index element={<Navigate to="edit" replace />} />
               <Route path="edit" element={<SurveyEditPage />} />

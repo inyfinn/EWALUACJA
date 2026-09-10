@@ -1,4 +1,4 @@
-export type DimensionKey = 'komunikacja' | 'terminowosc' | 'jakosc' | 'wklad_wlasny';
+export type DimensionKey = string;
 
 export type ScoreTier = 'high' | 'mid' | 'low'; // high (7-10), mid (4-6), low (1-3)
 
@@ -60,6 +60,7 @@ export interface SurveyField {
 
 export type SurveyEngine = 'generic' | '360';
 export type SurveyStatus = 'draft' | 'live' | 'closed';
+export type SurveySubject = 'person' | 'company' | 'workplace' | 'printshop' | 'self';
 
 export interface ManagedSurvey {
   id: string;
@@ -69,8 +70,32 @@ export interface ManagedSurvey {
   status: SurveyStatus;
   engine: SurveyEngine;
   fields: SurveyField[];
+  questions?: SurveyQuestion[];
   createdAt: string;
   updatedAt: string;
+  archived?: boolean;
+  isBuiltinTemplate?: boolean;
+  sourceTemplateId?: string;
+  subject?: SurveySubject;
+}
+
+export interface TrashSurveyItem {
+  deletedAt: string;
+  survey: ManagedSurvey;
+  tokens: VoterToken[];
+}
+
+export interface TrashResponseItem {
+  deletedAt: string;
+  response: SurveyResponse;
+  surveyId: string;
+  surveyTitle: string;
+  surveySnapshot: ManagedSurvey;
+}
+
+export interface TrashStore {
+  surveys: TrashSurveyItem[];
+  responses: TrashResponseItem[];
 }
 
 export interface SurveyResponse {

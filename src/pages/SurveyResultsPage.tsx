@@ -1,7 +1,7 @@
 import { useOutletContext } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ReportDashboard } from '../components/ReportDashboard';
-import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
+import { resolveSurveyQuestions } from '../data/surveyQuestions';
 import { ManagedSurvey, SurveyResponse, VoterToken } from '../types';
 import { computeDimensionsAnalytics, fetchResponsesFromServer, fetchTokensFromServer } from '../utils/surveyStorage';
 
@@ -25,12 +25,13 @@ export function SurveyResultsPage() {
     return () => clearInterval(id);
   }, [survey.id]);
 
-  if (survey.engine === '360') {
-    const stats = computeDimensionsAnalytics(DEFAULT_QUESTIONS, responses);
+  const questions = resolveSurveyQuestions(survey);
+  if (questions.length > 0) {
+    const stats = computeDimensionsAnalytics(questions, responses);
     return (
       <ReportDashboard
         stats={stats}
-        questions={DEFAULT_QUESTIONS}
+        questions={questions}
         responses={responses}
         tokens={tokens}
         onRefreshData={refresh}

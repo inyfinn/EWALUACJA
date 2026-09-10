@@ -58,12 +58,7 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
   const reportRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const dimensionList: DimensionStats[] = [
-    stats.dimensions.komunikacja,
-    stats.dimensions.terminowosc,
-    stats.dimensions.jakosc,
-    stats.dimensions.wklad_wlasny,
-  ];
+  const dimensionList: DimensionStats[] = Object.values(stats.dimensions).filter((d): d is DimensionStats => Boolean(d));
 
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
@@ -132,13 +127,13 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              <BarChart3 className="w-3.5 h-3.5" /> Raport Zbiorczy Ewaluacji 360
+              <BarChart3 className="w-3.5 h-3.5" /> Raport zbiorczy — ewaluacja pracownika
             </span>
             <span className="text-xs font-semibold text-slate-400">•</span>
             <span className="text-xs font-medium text-slate-500">Kubara Sp. z o.o.</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Ocena pracownika: Krzysztof Wieczorek – Wyniki Roczne
+            Ewaluacja pracownika: Krzysztof Wieczorek – Wyniki roczne
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             {stats.totalResponses > 0 ? (

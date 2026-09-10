@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+@theme {
+  --color-dk-bg: #f4f0fa;
+  --color-dk-green: #22a45a;
+  --color-dk-green-hover: #1b8f4e;
+  --color-dk-violet: #8b5cf6;
+  --color-dk-violet-hover: #7c4eef;
+  --color-dk-violet-soft: #ede9fe;
+  --color-dk-violet-text: #6d28d9;
+  --color-dk-blue: #7b92f7;
+  --color-dk-ink: #3f3558;
+}
+
+@layer components {
+  .btn-dk-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer border border-transparent bg-dk-green text-white hover:bg-dk-green-hover shadow-sm;
+  }
+  .btn-dk-violet {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer border border-transparent bg-dk-violet text-white hover:bg-dk-violet-hover shadow-sm;
+  }
+  .btn-dk-soft {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer border border-transparent bg-dk-violet-soft text-dk-violet-text hover:bg-[#e4dbff];
+  }
+  .btn-dk-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer border border-white bg-white text-dk-ink border-dk-violet-soft hover:bg-dk-violet-soft;
+  }
+  .btn-dk-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer border border-transparent bg-rose-50 text-rose-700 hover:bg-rose-100;
+  }
+}

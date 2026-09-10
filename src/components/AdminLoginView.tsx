@@ -35,7 +35,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
-        <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
+        <div className="w-14 h-14 bg-dk-green text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
           <Lock className="w-7 h-7 text-amber-400" />
         </div>
 
@@ -50,7 +50,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
             Krzysztof Wieczorek • Kubara Sp. z o.o.
           </p>
           <p className="text-xs text-slate-600 mt-3 leading-relaxed">
-            Ten obszar zawiera poufne zestawienie kodów dostępowych, odpowiedzi współpracowników oraz pełen raport 360°.
+            Ten obszar zawiera kody, odpowiedzi i raport ewaluacji pracownika.
           </p>
         </div>
 
@@ -93,7 +93,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
           <div className="pt-2 flex flex-col gap-2">
             <button
               type="submit"
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm rounded-xl transition-all shadow-md active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 btn-dk-primary text-sm"
             >
               <span>Odblokuj Panel Organizatora</span>
               <ArrowRight className="w-4 h-4 text-amber-400" />

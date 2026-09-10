@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
+import { DEFAULT_QUESTIONS } from './src/data/surveyQuestions.ts';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -34,6 +35,10 @@ interface ManagedSurvey {
   fields: SurveyField[];
   createdAt: string;
   updatedAt: string;
+  archived?: boolean;
+  sourceTemplateId?: string;
+  subject?: string;
+  questions?: any[];
 }
 
 interface VoterToken {
@@ -59,10 +64,28 @@ interface SurveyResponse {
   excludedFromReport?: boolean;
 }
 
+interface TrashSurveyItem {
+  deletedAt: string;
+  survey: ManagedSurvey;
+  tokens: VoterToken[];
+}
+
+interface TrashResponseItem {
+  deletedAt: string;
+  response: SurveyResponse;
+  surveyId: string;
+  surveyTitle: string;
+  surveySnapshot: ManagedSurvey;
+}
+
 interface StoreData {
   surveys: ManagedSurvey[];
   tokens: VoterToken[];
   responses: SurveyResponse[];
+  trash: {
+    surveys: TrashSurveyItem[];
+    responses: TrashResponseItem[];
+  };
 }
 
 function slugify(input: string): string {
@@ -90,12 +113,13 @@ function default360Survey(): ManagedSurvey {
   const now = new Date().toISOString();
   return {
     id: DEFAULT_SURVEY_ID,
-    slug: 'ewaluacja-360',
-    title: 'Ewaluacja współpracy 360° — Krzysztof Wieczorek',
-    description: 'Anonimowa ankieta roczna: komunikacja, terminowość, jakość, wkład własny.',
+    slug: 'ewaluacja-pracownika',
+    title: 'Ewaluacja pracownika',
+    description: 'Anonimowa ewaluacja pracownika: komunikacja, terminowość, jakość, wkład własny.',
     status: 'live',
     engine: '360',
     fields: [],
+    questions: JSON.parse(JSON.stringify(DEFAULT_QUESTIONS)),
     createdAt: now,
     updatedAt: now,
   };
@@ -115,7 +139,8 @@ function getDefaultStore(): StoreData {
       { id: 'token_7_kubara', code: 'KUB-7Y45Z', label: 'Współpracownik 7 (Współpracownik kluczowy)', used: false, surveyId: survey.id },
       { id: 'token_8_kubara', code: 'KUB-8N23L', label: 'Współpracownik 8 (Dział Obsługi Klienta)', used: false, surveyId: survey.id }
     ],
-    responses: []
+    responses: [],
+    trash: { surveys: [], responses: [] },
   };
 }
 
@@ -124,10 +149,27 @@ function migrateStore(parsed: any): StoreData {
     surveys: Array.isArray(parsed.surveys) ? parsed.surveys : [],
     tokens: Array.isArray(parsed.tokens) ? parsed.tokens : getDefaultStore().tokens,
     responses: Array.isArray(parsed.responses) ? parsed.responses : [],
+    trash: {
+      surveys: Array.isArray(parsed.trash?.surveys) ? parsed.trash.surveys : [],
+      responses: Array.isArray(parsed.trash?.responses) ? parsed.trash.responses : [],
+    },
   };
   if (store.surveys.length === 0) {
     store.surveys = [default360Survey()];
   }
+  store.surveys.forEach((s) => {
+    if (/360/.test(s.title || '')) {
+      s.title = 'Ewaluacja pracownika';
+    }
+    if (!s.description || /360/.test(s.description)) {
+      if (s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /360/.test(s.slug || '')) {
+        s.description = 'Anonimowa ewaluacja pracownika: komunikacja, terminowość, jakość, wkład własny.';
+      }
+    }
+    if ((!s.questions || !s.questions.length) && (s.engine === '360' || s.id === DEFAULT_SURVEY_ID)) {
+      s.questions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+    }
+  });
   store.tokens.forEach(t => {
     if (!t.surveyId) t.surveyId = DEFAULT_SURVEY_ID;
   });
@@ -149,9 +191,7 @@ function readStore(): StoreData {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
     const migrated = migrateStore(parsed);
-    if (!Array.isArray(parsed.surveys) || parsed.surveys.length === 0) {
-      writeStore(migrated);
-    }
+    writeStore(migrated);
     return migrated;
   } catch (err) {
     console.error('Failed to read data store:', err);
@@ -180,7 +220,104 @@ app.get('/api/health', (req, res) => {
     surveysCount: store.surveys.length,
     tokensCount: store.tokens.length,
     responsesCount: store.responses.length,
+    trashSurveys: store.trash.surveys.length,
+    trashResponses: store.trash.responses.length,
   });
+});
+
+function restoreSurveyRecord(store: StoreData, survey: ManagedSurvey, tokens: VoterToken[] = [], asArchived = false) {
+  const existing = store.surveys.find(s => s.id === survey.id);
+  if (existing) {
+    if (asArchived) {
+      existing.archived = true;
+      existing.status = 'closed';
+    }
+    return existing;
+  }
+  const restored = JSON.parse(JSON.stringify(survey)) as ManagedSurvey;
+  restored.slug = uniqueSlug(store, restored.slug || restored.title, restored.id);
+  if (asArchived) {
+    restored.archived = true;
+    restored.status = 'closed';
+  }
+  store.surveys.push(restored);
+  tokens.forEach((token) => {
+    if (!store.tokens.some(t => t.id === token.id)) store.tokens.push(token);
+  });
+  return restored;
+}
+
+app.get('/api/trash', (_req, res) => {
+  const store = readStore();
+  res.json(store.trash);
+});
+
+app.post('/api/trash/surveys/:id/restore', (req, res) => {
+  const store = readStore();
+  const idx = store.trash.surveys.findIndex(item => item.survey.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Nie ma tej ankiety w koszu.' });
+  const item = store.trash.surveys[idx];
+  restoreSurveyRecord(store, item.survey, item.tokens, false);
+  const related = store.trash.responses.filter(r => r.surveyId === item.survey.id);
+  related.forEach((tr) => {
+    if (!store.responses.some(r => r.id === tr.response.id)) {
+      store.responses.push(tr.response);
+    }
+  });
+  store.trash.surveys.splice(idx, 1);
+  store.trash.responses = store.trash.responses.filter(r => r.surveyId !== item.survey.id);
+  writeStore(store);
+  res.json({ success: true, survey: item.survey });
+});
+
+app.post('/api/trash/responses/:id/restore', (req, res) => {
+  const store = readStore();
+  const idx = store.trash.responses.findIndex(item => item.response.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Nie ma tej odpowiedzi w koszu.' });
+  const item = store.trash.responses[idx];
+  const live = store.surveys.find(s => s.id === item.surveyId);
+  const bundled = store.trash.surveys.find(t => t.survey.id === item.surveyId);
+
+  let restoredSurveyTemporarily = false;
+  let survey = live;
+  if (!survey && bundled) {
+    survey = restoreSurveyRecord(store, bundled.survey, bundled.tokens, true);
+    store.trash.surveys = store.trash.surveys.filter(t => t.survey.id !== bundled.survey.id);
+    restoredSurveyTemporarily = true;
+  } else if (!survey) {
+    survey = restoreSurveyRecord(store, item.surveySnapshot, [], true);
+    restoredSurveyTemporarily = true;
+  }
+
+  if (!store.responses.some(r => r.id === item.response.id)) {
+    store.responses.push({ ...item.response, surveyId: survey.id });
+  }
+  store.trash.responses.splice(idx, 1);
+  writeStore(store);
+  res.json({
+    success: true,
+    restoredSurveyTemporarily,
+    archived: Boolean(survey.archived),
+    surveyTitle: survey.title,
+    message: restoredSurveyTemporarily
+      ? `Ta odpowiedź należała do usuniętej ankiety „${survey.title}”. Przywracam tymczasowo całą ankietę i oznaczam ją jako zarchiwizowaną, żeby dało się odzyskać wynik.`
+      : 'Przywrócono odpowiedź do ankiety.',
+  });
+});
+
+app.delete('/api/trash/surveys/:id', (req, res) => {
+  const store = readStore();
+  store.trash.surveys = store.trash.surveys.filter(item => item.survey.id !== req.params.id);
+  store.trash.responses = store.trash.responses.filter(item => item.surveyId !== req.params.id);
+  writeStore(store);
+  res.json({ success: true });
+});
+
+app.delete('/api/trash/responses/:id', (req, res) => {
+  const store = readStore();
+  store.trash.responses = store.trash.responses.filter(item => item.response.id !== req.params.id);
+  writeStore(store);
+  res.json({ success: true });
 });
 
 app.get('/api/surveys', (_req, res) => {
@@ -190,7 +327,13 @@ app.get('/api/surveys', (_req, res) => {
 
 app.get('/api/surveys/by-slug/:slug', (req, res) => {
   const store = readStore();
-  const survey = store.surveys.find(s => s.slug === req.params.slug);
+  const slug = req.params.slug;
+  const aliases: Record<string, string> = {
+    'ewaluacja-pracownika': 'ewaluacja-360',
+    'ewaluacja-360': 'ewaluacja-pracownika',
+  };
+  const survey = store.surveys.find(s => s.slug === slug)
+    || (aliases[slug] ? store.surveys.find(s => s.slug === aliases[slug]) : undefined);
   if (!survey) {
     return res.status(404).json({ error: 'Nie znaleziono ankiety o tym adresie.' });
   }
@@ -206,7 +349,10 @@ app.get('/api/surveys/:id', (req, res) => {
 
 app.post('/api/surveys', (req, res) => {
   const body = req.body || {};
-  const title = typeof body.title === 'string' && body.title.trim() ? body.title.trim() : 'Nowa ankieta';
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  if (title.length < 2) {
+    return res.status(400).json({ error: 'Najpierw wpisz nazwę ankiety (minimum 2 znaki). Bez nazwy nie da się iść dalej.' });
+  }
   const store = readStore();
   const now = new Date().toISOString();
   const survey: ManagedSurvey = {
@@ -219,10 +365,36 @@ app.post('/api/surveys', (req, res) => {
     fields: Array.isArray(body.fields) ? body.fields : [],
     createdAt: now,
     updatedAt: now,
+    archived: Boolean(body.archived),
+    sourceTemplateId: typeof body.sourceTemplateId === 'string' ? body.sourceTemplateId : undefined,
+    subject: typeof body.subject === 'string' ? body.subject : undefined,
+    questions: Array.isArray(body.questions) ? body.questions : [],
   };
   store.surveys.push(survey);
   writeStore(store);
   res.json(survey);
+});
+
+app.post('/api/surveys/:id/duplicate', (req, res) => {
+  const store = readStore();
+  const source = store.surveys.find(s => s.id === req.params.id);
+  if (!source) return res.status(404).json({ error: 'Nie ma takiej ankiety do skopiowania.' });
+  const requestedTitle = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  const title = requestedTitle || `${source.title} (kopia)`;
+  const now = new Date().toISOString();
+  const copy: ManagedSurvey = {
+    ...JSON.parse(JSON.stringify(source)),
+    id: `survey_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    slug: uniqueSlug(store, title),
+    title,
+    status: 'draft',
+    archived: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.surveys.push(copy);
+  writeStore(store);
+  res.json(copy);
 });
 
 app.put('/api/surveys/:id', (req, res) => {
@@ -230,11 +402,18 @@ app.put('/api/surveys/:id', (req, res) => {
   const survey = store.surveys.find(s => s.id === req.params.id);
   if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
   const body = req.body || {};
-  if (typeof body.title === 'string' && body.title.trim()) survey.title = body.title.trim();
+  if (typeof body.title === 'string') {
+    if (!body.title.trim()) {
+      return res.status(400).json({ error: 'Ankieta musi mieć nazwę. Wpisz tytuł, zanim zapiszesz.' });
+    }
+    survey.title = body.title.trim();
+  }
   if (typeof body.description === 'string') survey.description = body.description;
   if (body.status === 'draft' || body.status === 'live' || body.status === 'closed') survey.status = body.status;
+  if (typeof body.archived === 'boolean') survey.archived = body.archived;
   if (body.engine === '360' || body.engine === 'generic') survey.engine = body.engine;
   if (Array.isArray(body.fields)) survey.fields = body.fields;
+  if (Array.isArray(body.questions)) survey.questions = body.questions;
   if (typeof body.slug === 'string' && body.slug.trim()) {
     survey.slug = uniqueSlug(store, body.slug, survey.id);
   }
@@ -245,17 +424,34 @@ app.put('/api/surveys/:id', (req, res) => {
 
 app.delete('/api/surveys/:id', (req, res) => {
   const { id } = req.params;
-  if (id === DEFAULT_SURVEY_ID) {
-    return res.status(400).json({ error: 'Nie można usunąć wbudowanej ankiety 360°. Możesz ją zarchiwizować (status: zamknięta).' });
-  }
   const store = readStore();
-  const exists = store.surveys.some(s => s.id === id);
-  if (!exists) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  const survey = store.surveys.find(s => s.id === id);
+  if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+
+  const relatedResponses = store.responses.filter(r => r.surveyId === id);
+  const relatedTokens = store.tokens.filter(t => t.surveyId === id);
+  const deletedAt = new Date().toISOString();
+
+  store.trash.surveys.unshift({
+    deletedAt,
+    survey: JSON.parse(JSON.stringify(survey)),
+    tokens: JSON.parse(JSON.stringify(relatedTokens)),
+  });
+  relatedResponses.forEach((response) => {
+    store.trash.responses.unshift({
+      deletedAt,
+      response: JSON.parse(JSON.stringify(response)),
+      surveyId: id,
+      surveyTitle: survey.title,
+      surveySnapshot: JSON.parse(JSON.stringify(survey)),
+    });
+  });
+
   store.surveys = store.surveys.filter(s => s.id !== id);
   store.tokens = store.tokens.filter(t => t.surveyId !== id);
   store.responses = store.responses.filter(r => r.surveyId !== id);
   writeStore(store);
-  res.json({ success: true });
+  res.json({ success: true, trashed: true });
 });
 
 app.get('/api/tokens', (req, res) => {
@@ -338,13 +534,32 @@ app.delete('/api/responses/:id', (req, res) => {
   const { id } = req.params;
   const store = readStore();
   const resp = store.responses.find(r => r.id === id);
-  
-  // Remove response
+  if (!resp) return res.status(404).json({ success: false, error: 'Odpowiedź nie istnieje.' });
+
+  const parent = store.surveys.find(s => s.id === resp.surveyId)
+    || store.trash.surveys.find(t => t.survey.id === resp.surveyId)?.survey;
+  store.trash.responses.unshift({
+    deletedAt: new Date().toISOString(),
+    response: JSON.parse(JSON.stringify(resp)),
+    surveyId: resp.surveyId || DEFAULT_SURVEY_ID,
+    surveyTitle: parent?.title || 'Nieznana ankieta',
+    surveySnapshot: parent ? JSON.parse(JSON.stringify(parent)) : JSON.parse(JSON.stringify({
+      id: resp.surveyId || DEFAULT_SURVEY_ID,
+      slug: `przywrocona-${Date.now()}`,
+      title: 'Przywrócona ankieta',
+      description: '',
+      status: 'closed',
+      engine: 'generic',
+      fields: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      archived: true,
+    })),
+  });
+
   store.responses = store.responses.filter(r => r.id !== id);
-  
-  // Reset any associated token
   store.tokens.forEach(t => {
-    if (t.responseId === id || (resp && t.code.toUpperCase() === resp.tokenUsed.toUpperCase())) {
+    if (t.responseId === id || t.code.toUpperCase() === resp.tokenUsed.toUpperCase()) {
       t.used = false;
       delete t.usedAt;
       delete t.responseId;
@@ -352,7 +567,7 @@ app.delete('/api/responses/:id', (req, res) => {
   });
 
   writeStore(store);
-  res.json({ success: true });
+  res.json({ success: true, trashed: true });
 });
 
 app.patch('/api/responses/:id/exclude', (req, res) => {

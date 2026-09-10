@@ -1,4 +1,4 @@
-import { ManagedSurvey, SurveyField } from '../types';
+import { ManagedSurvey, SurveyField, TrashStore } from '../types';
 import { apiUrl } from './apiClient';
 
 export async function fetchSurveys(): Promise<ManagedSurvey[]> {
@@ -49,6 +49,44 @@ export async function deleteSurveyApi(id: string): Promise<void> {
   }
 }
 
+export async function duplicateSurveyApi(id: string, title?: string): Promise<ManagedSurvey> {
+  const res = await fetch(apiUrl(`api/surveys/${id}/duplicate`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Nie udało się skopiować ankiety.');
+  return data;
+}
+
+export async function fetchTrash(): Promise<TrashStore> {
+  const res = await fetch(apiUrl('api/trash'));
+  if (!res.ok) throw new Error('Nie udało się otworzyć kosza.');
+  return res.json();
+}
+
+export async function restoreSurveyApi(id: string): Promise<void> {
+  const res = await fetch(apiUrl(`api/trash/surveys/${id}/restore`), { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Nie udało się przywrócić ankiety.');
+}
+
+export async function restoreResponseApi(id: string): Promise<{ message: string; restoredSurveyTemporarily?: boolean }> {
+  const res = await fetch(apiUrl(`api/trash/responses/${id}/restore`), { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Nie udało się przywrócić odpowiedzi.');
+  return data;
+}
+
+export async function emptyTrashSurvey(id: string): Promise<void> {
+  await fetch(apiUrl(`api/trash/surveys/${id}`), { method: 'DELETE' });
+}
+
+export async function emptyTrashResponse(id: string): Promise<void> {
+  await fetch(apiUrl(`api/trash/responses/${id}`), { method: 'DELETE' });
+}
+
 export function newField(type: SurveyField['type'] = 'short_text'): SurveyField {
   return {
     id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -58,6 +96,6 @@ export function newField(type: SurveyField['type'] = 'short_text'): SurveyField 
     required: true,
     options: type === 'single_choice' || type === 'multi_choice' ? ['Opcja A', 'Opcja B'] : undefined,
     scaleMin: type === 'scale' ? 1 : undefined,
-    scaleMax: type === 'scale' ? 10 : undefined,
+    scaleMax: type === 'scale' ? 11 : undefined,
   };
 }

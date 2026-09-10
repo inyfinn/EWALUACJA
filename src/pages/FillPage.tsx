@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
+import { resolveSurveyQuestions } from '../data/surveyQuestions';
 import { SurveyFillView } from '../components/SurveyFillView';
 import { GenericFillView } from './GenericFillView';
 import { ManagedSurvey } from '../types';
@@ -39,25 +39,38 @@ export function FillPage() {
     return <div className="min-h-screen bg-slate-100 flex items-center justify-center text-sm text-slate-500">Wczytywanie ankiety…</div>;
   }
 
-  if (survey.status === 'draft') {
+  if (survey.status === 'draft' || survey.archived) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">Ta ankieta jest jeszcze szkicem i nie przyjmuje odpowiedzi.</div>
+        <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">
+          {survey.archived ? 'Ta ankieta jest zarchiwizowana i nie przyjmuje odpowiedzi.' : 'Ta ankieta jest jeszcze szkicem i nie przyjmuje odpowiedzi.'}
+        </div>
       </div>
     );
   }
 
-  if (survey.engine === '360') {
+  if (survey.status === 'closed') {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">Ta ankieta jest zamknięta.</div>
+      </div>
+    );
+  }
+
+  const questions = resolveSurveyQuestions(survey);
+  if (questions.length > 0) {
     return (
       <div className="min-h-screen bg-slate-100/90">
         <SurveyFillView
-        questions={DEFAULT_QUESTIONS}
-        prefilledToken={token}
-        surveyId={survey.id}
-        onCompleted={() => {
-          fetchResponsesFromServer(survey.id);
-        }}
-      />
+          questions={questions}
+          prefilledToken={token}
+          surveyId={survey.id}
+          heading={survey.title}
+          intro={survey.description}
+          onCompleted={() => {
+            fetchResponsesFromServer(survey.id);
+          }}
+        />
       </div>
     );
   }

@@ -101,7 +101,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
         await navigator.share({
           files: [file],
           title: filename,
-          text: 'Podsumowanie Ewaluacji 360 – Krzysztof Wieczorek (Kubara Sp. z o.o.)',
+          text: 'Podsumowanie ewaluacji pracownika – Krzysztof Wieczorek (Kubara Sp. z o.o.)',
         });
         return true;
       } catch (err: any) {
@@ -230,7 +230,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ewaluacja 360: Krzysztof Wieczorek</title>
+  <title>Ewaluacja pracownika: Krzysztof Wieczorek</title>
   <style>
     body { margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #0f172a; text-align: center; }
     .btn { display: inline-block; padding: 12px 24px; background: #0f172a; color: #fff; font-weight: bold; border-radius: 8px; text-decoration: none; margin-bottom: 20px; cursor: pointer; border: none; font-size: 15px; }
@@ -326,7 +326,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
   // Copy full summary to clipboard and share
   const handleCopySummary = async () => {
     const textLines = [
-      `📋 PODSUMOWANIE EWALUACJI 360: KRZYSZTOF WIECZOREK`,
+      `📋 PODSUMOWANIE EWALUACJI PRACOWNIKA: KRZYSZTOF WIECZOREK`,
       `Firma: Kubara Sp. z o.o. | Data: ${new Date().toLocaleDateString('pl-PL')}`,
       `--------------------------------------------------`,
       `🎯 Wynik łączny: ${summary.userTotalScore} / 132 pkt (Średnia: ${summary.userAverageScore} / 11.0)`,
@@ -354,7 +354,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
       if (navigator.share) {
         try {
           await navigator.share({
-            title: 'Ewaluacja 360 - Podsumowanie',
+            title: 'Ewaluacja pracownika — podsumowanie',
             text: formattedText,
           });
           setCopySuccess(true);
@@ -588,7 +588,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white px-2 py-0.5 rounded">
-                Kopia Ewaluacji 360
+                Ewaluacja pracownika
               </span>
               <span className="text-xs text-slate-500 font-medium">Kubara Sp. z o.o.</span>
             </div>
@@ -772,7 +772,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
 
         {/* Footer info */}
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-          <span>Kubara Sp. z o.o. • Roczna Ewaluacja Pracownicza 360</span>
+          <span>Kubara Sp. z o.o. • Ewaluacja pracownika</span>
           <span>Wygenerowano automatycznie w systemie ankietowym</span>
         </div>
 

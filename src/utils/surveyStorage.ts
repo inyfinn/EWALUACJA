@@ -424,7 +424,7 @@ export function setSurveyCustomBaseUrl(url: string | null) {
 }
 
 // Generate direct URL for a specific token
-export function getSurveyUrl(tokenCode: string, slug = 'ewaluacja-360'): string {
+export function getSurveyUrl(tokenCode: string, slug = 'ewaluacja-pracownika'): string {
   return fillUrl(slug, tokenCode);
 }
 
@@ -464,13 +464,14 @@ export function computeDimensionsAnalytics(
   employeeArchetype: { title: string; description: string; };
   competencyProfile: { relational: number; execution: number; quality: number; initiative: number; };
 } {
-  const dimensionKeys: DimensionKey[] = ['komunikacja', 'terminowosc', 'jakosc', 'wklad_wlasny'];
-  const titles: Record<DimensionKey, string> = {
-    komunikacja: '1. Komunikacja i relacje',
-    terminowosc: '2. Terminowość i niezawodność',
-    jakosc: '3. Jakość pracy i samodzielność',
-    wklad_wlasny: '4. Wkład własny i inicjatywa',
-  };
+  const dimensionKeys: DimensionKey[] = questions.length
+    ? Array.from(new Set(questions.map(q => q.dimension)))
+    : ['komunikacja', 'terminowosc', 'jakosc', 'wklad_wlasny'];
+  const titles: Record<string, string> = {};
+  dimensionKeys.forEach(dim => {
+    const q = questions.find(item => item.dimension === dim);
+    titles[dim] = q?.dimensionTitle || dim;
+  });
 
   const initialStats: Record<DimensionKey, DimensionStats> = {} as any;
 
@@ -507,12 +508,8 @@ export function computeDimensionsAnalytics(
   }
 
   // Count factors across all questions
-  const factorTallies: Record<DimensionKey, Record<string, number>> = {
-    komunikacja: {},
-    terminowosc: {},
-    jakosc: {},
-    wklad_wlasny: {},
-  };
+  const factorTallies: Record<string, Record<string, number>> = {};
+  dimensionKeys.forEach(dim => { factorTallies[dim] = {}; });
 
   const globalDriversTally: Record<string, number> = {};
   const globalImprovementsTally: Record<string, number> = {};
@@ -657,10 +654,9 @@ export function computeDimensionsAnalytics(
   const salaryReadiness = Math.min(
     100,
     Math.round(
-      (initialStats.jakosc.average * 3.0 +
-        initialStats.wklad_wlasny.average * 3.0 +
-        initialStats.terminowosc.average * 2.0 +
-        initialStats.komunikacja.average * 2.0) *
+      (dimensionKeys.reduce((sum, key) => sum + (initialStats[key]?.average || 0), 0) /
+        Math.max(dimensionKeys.length, 1)) *
+        10 *
         (activeResponses.length >= 3 ? 1 : 0.7)
     )
   );
@@ -681,10 +677,12 @@ export function computeDimensionsAnalytics(
   
   // Compute Competencies (0-100) based on max possible score of 11.
   // Actually, average is out of 10 or 11. Let's cap at 10 for percentage so 11 is "off the charts"
-  const relational = Math.min(100, Math.round((initialStats.komunikacja.average / 10) * 100));
-  const execution = Math.min(100, Math.round((initialStats.terminowosc.average / 10) * 100));
-  const quality = Math.min(100, Math.round((initialStats.jakosc.average / 10) * 100));
-  const initiative = Math.min(100, Math.round((initialStats.wklad_wlasny.average / 10) * 100));
+  const dimAvg = (key: string) => initialStats[key]?.average || 0;
+  const dimPct = (key: string) => Math.min(100, Math.round((dimAvg(key) / 10) * 100));
+  const relational = dimPct(dimensionKeys.find(k => k === 'komunikacja') || dimensionKeys[0] || '');
+  const execution = dimPct(dimensionKeys.find(k => k === 'terminowosc') || dimensionKeys[1] || dimensionKeys[0] || '');
+  const quality = dimPct(dimensionKeys.find(k => k === 'jakosc') || dimensionKeys[2] || dimensionKeys[0] || '');
+  const initiative = dimPct(dimensionKeys.find(k => k === 'wklad_wlasny') || dimensionKeys[3] || dimensionKeys[0] || '');
 
   const maxVal = Math.max(relational, execution, quality, initiative);
   let archetypeTitle = '';
@@ -733,9 +731,10 @@ export function computeDimensionsAnalytics(
 }
 
 function getHighestDim(stats: Record<DimensionKey, DimensionStats>): DimensionKey {
-  let highest: DimensionKey = 'komunikacja';
+  const keys = Object.keys(stats) as DimensionKey[];
+  let highest: DimensionKey = keys[0] || 'komunikacja';
   let max = -1;
-  (Object.keys(stats) as DimensionKey[]).forEach(k => {
+  keys.forEach(k => {
     if (stats[k].average > max) {
       max = stats[k].average;
       highest = k;
@@ -745,9 +744,10 @@ function getHighestDim(stats: Record<DimensionKey, DimensionStats>): DimensionKe
 }
 
 function getLowestDim(stats: Record<DimensionKey, DimensionStats>): DimensionKey {
-  let lowest: DimensionKey = 'komunikacja';
+  const keys = Object.keys(stats) as DimensionKey[];
+  let lowest: DimensionKey = keys[0] || 'komunikacja';
   let min = 999;
-  (Object.keys(stats) as DimensionKey[]).forEach(k => {
+  keys.forEach(k => {
     if (stats[k].average < min) {
       min = stats[k].average;
       lowest = k;

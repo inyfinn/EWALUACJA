@@ -21,6 +21,8 @@ interface SurveyFillViewProps {
   questions: SurveyQuestion[];
   prefilledToken?: string;
   surveyId?: string;
+  heading?: string;
+  intro?: string;
   onCompleted: () => void;
   onSwitchToAdmin?: () => void;
   onOpenAdminLogin?: () => void;
@@ -170,6 +172,8 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   questions,
   prefilledToken = '',
   surveyId,
+  heading,
+  intro,
   onCompleted,
   onSwitchToAdmin,
   onOpenAdminLogin,
@@ -322,10 +326,10 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 tracking-tight">
-            Ocena współpracy i 360° Feedback
+            {heading || 'Ewaluacja pracownika'}
           </h1>
           <p className="text-slate-600 sm:text-lg mb-8 leading-relaxed max-w-2xl">
-            Witaj w bezpiecznym panelu oceny. Twoje odpowiedzi pomogą nam lepiej rozwijać zespół. Ankieta jest w 100% anonimowa.
+            {intro || 'Witaj w bezpiecznym panelu oceny. Twoje odpowiedzi pomogą nam lepiej rozwijać zespół. Ankieta jest w 100% anonimowa.'}
           </p>
 
           <button
