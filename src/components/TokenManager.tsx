@@ -543,7 +543,7 @@ Dziękuję za Twój czas i pomoc!`;
               return (
                 <div
                   key={token.id}
-                  className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
+                  className={`p-4 sm:p-5 flex flex-col lg:flex-row lg:items-start justify-between gap-4 transition-colors ${
                     token.used ? (isExcluded ? 'bg-amber-50/30' : 'bg-emerald-50/20') : 'hover:bg-slate-50/70'
                   }`}
                 >
@@ -587,7 +587,7 @@ Dziękuję za Twój czas i pomoc!`;
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  <div className="flex items-center gap-2 flex-wrap justify-end w-full lg:max-w-[46%]">
                     {/* Exclude / Include toggle for used survey */}
                     {token.used && linkedResponse && (
                       <button
