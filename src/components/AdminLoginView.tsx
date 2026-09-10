@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, ArrowRight, Eye, EyeOff, KeyRound, AlertCircle } from 'lucide-react';
 import { DobraKaloriaMark } from './DobraKaloriaMark';
+import { InyfinnCopyright } from './InyfinnCopyright';
 
 interface AdminLoginViewProps {
   onSuccess: () => void;
@@ -34,10 +35,10 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
         <div className="flex justify-center mb-4">
-          <DobraKaloriaMark className="h-16 w-16" />
+          <DobraKaloriaMark className="h-16 w-auto max-w-[140px]" />
         </div>
 
         <div className="text-center mb-6">
@@ -110,6 +111,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
           </div>
         </form>
       </div>
+      <InyfinnCopyright />
     </div>
   );
 };

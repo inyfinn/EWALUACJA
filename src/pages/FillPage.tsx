@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { resolveSurveyQuestions } from '../data/surveyQuestions';
 import { SurveyFillView } from '../components/SurveyFillView';
 import { GenericFillView } from './GenericFillView';
 import { ManagedSurvey } from '../types';
 import { fetchSurveyBySlug } from '../utils/cmsApi';
+import { InyfinnCopyright } from '../components/InyfinnCopyright';
 import { fetchResponsesFromServer, fetchTokensFromServer } from '../utils/surveyStorage';
+
+function FillShell({ children, className = 'bg-slate-100' }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`min-h-screen flex flex-col ${className}`}>
+      <div className="flex-1">{children}</div>
+      <InyfinnCopyright />
+    </div>
+  );
+}
 
 export function FillPage() {
   const { slug } = useParams();
@@ -25,42 +35,52 @@ export function FillPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 max-w-md text-center border">
-          <h1 className="font-black text-xl">Nie znaleziono ankiety</h1>
-          <p className="text-sm text-slate-600 mt-2">{error}</p>
-          <Link to="/cms" className="inline-block mt-4 text-sm font-bold text-indigo-700">Przejdź do panelu CMS</Link>
+      <FillShell>
+        <div className="flex items-center justify-center p-6 min-h-[70vh]">
+          <div className="bg-white rounded-3xl p-8 max-w-md text-center border">
+            <h1 className="font-black text-xl">Nie znaleziono ankiety</h1>
+            <p className="text-sm text-slate-600 mt-2">{error}</p>
+            <Link to="/cms" className="inline-block mt-4 text-sm font-bold text-indigo-700">Przejdź do panelu CMS</Link>
+          </div>
         </div>
-      </div>
+      </FillShell>
     );
   }
 
   if (!survey) {
-    return <div className="min-h-screen bg-slate-100 flex items-center justify-center text-sm text-slate-500">Wczytywanie ankiety…</div>;
+    return (
+      <FillShell>
+        <div className="flex items-center justify-center min-h-[70vh] text-sm text-slate-500">Wczytywanie ankiety…</div>
+      </FillShell>
+    );
   }
 
   if (survey.status === 'draft' || survey.archived) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">
-          {survey.archived ? 'Ta ankieta jest zarchiwizowana i nie przyjmuje odpowiedzi.' : 'Ta ankieta jest jeszcze szkicem i nie przyjmuje odpowiedzi.'}
+      <FillShell>
+        <div className="flex items-center justify-center p-6 min-h-[70vh]">
+          <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">
+            {survey.archived ? 'Ta ankieta jest zarchiwizowana i nie przyjmuje odpowiedzi.' : 'Ta ankieta jest jeszcze szkicem i nie przyjmuje odpowiedzi.'}
+          </div>
         </div>
-      </div>
+      </FillShell>
     );
   }
 
   if (survey.status === 'closed') {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">Ta ankieta jest zamknięta.</div>
-      </div>
+      <FillShell>
+        <div className="flex items-center justify-center p-6 min-h-[70vh]">
+          <div className="bg-white rounded-3xl p-8 max-w-md text-center border text-sm">Ta ankieta jest zamknięta.</div>
+        </div>
+      </FillShell>
     );
   }
 
   const questions = resolveSurveyQuestions(survey);
   if (questions.length > 0) {
     return (
-      <div className="min-h-screen bg-slate-100/90">
+      <FillShell className="bg-slate-100/90">
         <SurveyFillView
           questions={questions}
           prefilledToken={token}
@@ -71,9 +91,13 @@ export function FillPage() {
             fetchResponsesFromServer(survey.id);
           }}
         />
-      </div>
+      </FillShell>
     );
   }
 
-  return <GenericFillView survey={survey} token={token || 'PREVIEW'} />;
+  return (
+    <FillShell>
+      <GenericFillView survey={survey} token={token || 'PREVIEW'} />
+    </FillShell>
+  );
 }

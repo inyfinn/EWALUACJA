@@ -54,7 +54,7 @@ export function SurveyWorkspace() {
       </div>
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {tab('edit', 'Treść ankiety', <FileEdit className="w-4 h-4" />)}
-        {tab('links', 'Linki do wypełnienia', <Link2 className="w-4 h-4" />)}
+        {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />)}
         {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />)}
         <a
           href={fillUrl(survey.slug)}

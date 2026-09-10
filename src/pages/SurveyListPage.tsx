@@ -70,7 +70,19 @@ export function SurveyListPage() {
 
       <div className="grid gap-4">
         {surveys.map((survey) => (
-          <article key={survey.id} className="bg-white rounded-3xl border border-dk-violet-soft p-5 sm:p-6">
+          <article
+            key={survey.id}
+            role="link"
+            tabIndex={0}
+            onClick={() => navigate(`/cms/surveys/${survey.id}/edit`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(`/cms/surveys/${survey.id}/edit`);
+              }
+            }}
+            className="bg-white rounded-3xl border border-dk-violet-soft p-5 sm:p-6 cursor-pointer hover:border-dk-violet/40 hover:shadow-sm transition-shadow"
+          >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -89,12 +101,16 @@ export function SurveyListPage() {
                 <p className="text-xs text-dk-ink/70">{survey.description || 'Brak opisu'}</p>
                 <p className="text-[11px] font-mono text-dk-violet/60 mt-2 break-all">{fillUrl(survey.slug)}</p>
               </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
+              <div
+                className="flex flex-wrap gap-2 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
                 <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/edit`)} className="btn-dk-primary">
                   <FileEdit className="w-3.5 h-3.5" /> Edytuj treść
                 </button>
                 <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/links`)} className="btn-dk-soft">
-                  <Link2 className="w-3.5 h-3.5" /> Linki
+                  <Link2 className="w-3.5 h-3.5" /> Zarządzaj
                 </button>
                 <button type="button" onClick={() => navigate(`/cms/surveys/${survey.id}/results`)} className="btn-dk-soft">
                   <BarChart3 className="w-3.5 h-3.5" /> Wyniki

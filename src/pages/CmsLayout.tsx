@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LogOut, Plus, Trash2 } from 'lucide-react';
 import { DobraKaloriaMark } from '../components/DobraKaloriaMark';
+import { InyfinnCopyright } from '../components/InyfinnCopyright';
 import { setOrganizerAuthed } from './RequireAuth';
 
 export function CmsLayout() {
@@ -12,11 +13,11 @@ export function CmsLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-dk-bg text-dk-ink font-sans antialiased">
+    <div className="min-h-screen bg-dk-bg text-dk-ink font-sans antialiased flex flex-col">
       <header className="bg-white/90 backdrop-blur border-b border-dk-violet-soft sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/cms" className="flex items-center gap-3 min-w-0">
-            <DobraKaloriaMark className="h-11 w-11" />
+            <DobraKaloriaMark className="h-11 w-auto max-w-[88px]" />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-extrabold text-sm sm:text-base tracking-tight text-dk-ink">Panel Ankiet</h1>
@@ -43,9 +44,10 @@ export function CmsLayout() {
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
         <Outlet />
       </main>
+      <InyfinnCopyright />
     </div>
   );
 }

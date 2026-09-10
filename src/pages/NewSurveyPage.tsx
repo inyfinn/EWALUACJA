@@ -73,7 +73,7 @@ export function NewSurveyPage() {
           <li>Wpisz nazwę osoby (np. „Ewaluacja Krzysztofa Wieczorka”). Bez tego przycisk na dole jest nieaktywny.</li>
           <li>Wybierz rodzaj ankiety albo „zrób kopię” już zapisanej.</li>
           <li>Otworzy się podgląd na żywo: klikasz w treść pytania i zmieniasz. Opcje dodajesz przyciskiem, nie przecinkami.</li>
-          <li>Zapisz. Potem w zakładce Linki rozsyłasz wypełnianie.</li>
+          <li>Zapisz. Potem w zakładce Zarządzaj rozsyłasz wypełnianie.</li>
         </ol>
       </div>
 
