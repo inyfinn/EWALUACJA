@@ -1,5 +1,6 @@
 import { SurveyQuestion, SurveyResponse, VoterToken, DimensionStats, DimensionKey, FactorCount } from '../types';
 import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
+import { apiUrl } from './apiClient';
 
 const STORAGE_KEYS = {
   TOKENS: 'kubara_eval_tokens_v6',
@@ -57,7 +58,7 @@ export function initializeDefaultResponses(): SurveyResponse[] {
 
 export async function fetchTokensFromServer(): Promise<VoterToken[]> {
   try {
-    const res = await fetch('/api/tokens');
+    const res = await fetch(apiUrl('api/tokens'));
     if (res.ok) {
       const data: VoterToken[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -73,7 +74,7 @@ export async function fetchTokensFromServer(): Promise<VoterToken[]> {
 
 export async function fetchResponsesFromServer(): Promise<SurveyResponse[]> {
   try {
-    const res = await fetch('/api/responses');
+    const res = await fetch(apiUrl('api/responses'));
     if (res.ok) {
       const data: SurveyResponse[] = await res.json();
       if (Array.isArray(data)) {
@@ -92,7 +93,7 @@ export async function saveResponseAsync(response: SurveyResponse): Promise<{ suc
   saveResponse(response);
 
   try {
-    const res = await fetch('/api/responses', {
+    const res = await fetch(apiUrl('api/responses'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(response),
@@ -110,14 +111,41 @@ export async function saveResponseAsync(response: SurveyResponse): Promise<{ suc
     return { success: true };
   } catch (err: any) {
     console.error('Server save error, saved locally:', err);
-    // Even if server request had a network issue, local storage has it
+    return {
+      success: false,
+      error: 'Nie udało się zapisać wyniku na serwerze Synology. Pobierz plik .kw360.json i wgraj go w panelu organizatora (Dodaj wynik z pliku). Kopia zostaje też w tej przeglądarce.',
+    };
+  }
+}
+
+export async function importResponseFromFileAsync(response: SurveyResponse): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(apiUrl('api/responses/import'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        format: 'kubara-ewaluacja-360',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        source: 'file-import',
+        response,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Błąd importu na serwerze.' };
+    }
+    await fetchTokensFromServer();
+    await fetchResponsesFromServer();
     return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Nie udało się połączyć z serwerem podczas importu.' };
   }
 }
 
 export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
   try {
-    const res = await fetch('/api/tokens', {
+    const res = await fetch(apiUrl('api/tokens'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label }),
@@ -135,7 +163,7 @@ export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
 
 export async function deleteSingleResponseAsync(responseId: string): Promise<void> {
   try {
-    await fetch(`/api/responses/${responseId}`, { method: 'DELETE' });
+    await fetch(apiUrl(`api/responses/${responseId}`), { method: 'DELETE' });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -155,7 +183,7 @@ export async function deleteSingleResponseAsync(responseId: string): Promise<voi
 
 export async function toggleExcludeResponseAsync(responseId: string, excluded?: boolean): Promise<void> {
   try {
-    await fetch(`/api/responses/${responseId}/exclude`, {
+    await fetch(apiUrl(`api/responses/${responseId}/exclude`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ excluded }),
@@ -177,7 +205,7 @@ export async function toggleExcludeResponseAsync(responseId: string, excluded?: 
 
 export async function resetTokenAsync(tokenId: string): Promise<void> {
   try {
-    await fetch(`/api/tokens/${tokenId}/reset`, { method: 'POST' });
+    await fetch(apiUrl(`api/tokens/${tokenId}/reset`), { method: 'POST' });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -198,7 +226,7 @@ export async function resetTokenAsync(tokenId: string): Promise<void> {
 
 export async function deleteTokenAsync(id: string): Promise<void> {
   try {
-    await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`api/tokens/${id}`), { method: 'DELETE' });
     await fetchTokensFromServer();
   } catch (e) {
     console.warn('Failed to delete token on server, deleting locally:', e);
@@ -208,7 +236,7 @@ export async function deleteTokenAsync(id: string): Promise<void> {
 
 export async function clearAllResponsesAsync(): Promise<void> {
   try {
-    await fetch('/api/clear-responses', { method: 'POST' });
+    await fetch(apiUrl('api/clear-responses'), { method: 'POST' });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -345,9 +373,12 @@ export function getSurveyBaseUrlInfo(): SurveyBaseUrlInfo {
   const isAiStudioDev = origin.includes('ais-dev-');
 
   const defaultDevUrl = `${origin}${pathname}`.replace(/\/+$/, '');
-  const publicSharedUrl = isAiStudioDev 
-    ? `${origin.replace('ais-dev-', 'ais-pre-')}${pathname}`.replace(/\/+$/, '') 
-    : defaultDevUrl;
+  const nasPublicUrl = 'https://inyfinn.synology.me/panel-ankiet';
+  const publicSharedUrl = origin.includes('synology.me')
+    ? `${origin}${pathname}`.replace(/\/+$/, '') || nasPublicUrl
+    : isAiStudioDev
+      ? `${origin.replace('ais-dev-', 'ais-pre-')}${pathname}`.replace(/\/+$/, '')
+      : nasPublicUrl;
 
   // Mode resolution
   let mode: 'shared' | 'dev' | 'custom' = storedMode || (isAiStudioDev ? 'shared' : 'dev');
@@ -394,7 +425,7 @@ export function getSurveyUrl(tokenCode: string): string {
   const info = getSurveyBaseUrlInfo();
   const code = tokenCode.trim().toUpperCase();
   if (!info.url) return `?token=${code}`;
-  return `${info.url}?token=${code}`;
+  return `${info.url.replace(/\/+$/, '')}/?token=${code}`;
 }
 
 export function validateTokenCode(code: string, currentTokens?: VoterToken[]): { valid: boolean; used: boolean; label?: string; error?: string; token?: VoterToken } {

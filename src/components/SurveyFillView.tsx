@@ -191,6 +191,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showTokenInputForm, setShowTokenInputForm] = useState(false);
   const [priorResponsesSnapshot, setPriorResponsesSnapshot] = useState<SurveyResponse[]>([]);
+  const [submittedResponse, setSubmittedResponse] = useState<SurveyResponse | null>(null);
 
   // Pre-load prior responses snapshot so it's ready
   useEffect(() => {
@@ -289,6 +290,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     };
 
     const res = await saveResponseAsync(newResponse);
+    setSubmittedResponse(newResponse);
 
     if (res.success) {
       confetti({
@@ -302,6 +304,8 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       onCompleted();
     } else {
       setSubmitError(res.error || 'Wystąpił nieznany błąd zapisu.');
+      setSurveyStage('submitted');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -345,6 +349,8 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
         selectedFactors={selectedFactors}
         priorResponses={priorResponsesSnapshot}
         tokenUsed={resolvedToken}
+        savedResponse={submittedResponse || undefined}
+        saveWarning={submitError || undefined}
         onOpenAdminLogin={onOpenAdminLogin || onSwitchToAdmin}
       />
     );

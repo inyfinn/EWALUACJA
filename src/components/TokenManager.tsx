@@ -21,7 +21,9 @@ import {
   Link as LinkIcon,
   PlayCircle,
   RotateCcw,
-  EyeOff
+  EyeOff,
+  FileArchive,
+  Upload,
 } from 'lucide-react';
 import { VoterToken, SurveyResponse } from '../types';
 import { 
@@ -33,8 +35,10 @@ import {
   addCustomTokenAsync, 
   deleteTokenAsync,
   toggleExcludeResponseAsync,
-  resetTokenAsync
+  resetTokenAsync,
+  importResponseFromFileAsync
 } from '../utils/surveyStorage';
+import { parseSurveyFile } from '../utils/surveyTransfer';
 
 interface TokenManagerProps {
   tokens: VoterToken[];
@@ -61,6 +65,8 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   const [showUrlSettings, setShowUrlSettings] = useState(false);
   const [customUrlInput, setCustomUrlInput] = useState('');
   const [urlSaveSuccess, setUrlSaveSuccess] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     const info = getSurveyBaseUrlInfo();
@@ -131,6 +137,29 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
     if (window.confirm('Czy na pewno chcesz usunąć wynik ankiety i odblokować ten link do ponownego wypełnienia?')) {
       await resetTokenAsync(tokenId);
       onTokensUpdated();
+    }
+  };
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+    setIsImporting(true);
+    setImportStatus(null);
+    try {
+      const parsed = await parseSurveyFile(file);
+      const result = await importResponseFromFileAsync(parsed);
+      if (!result.success) {
+        setImportStatus({ type: 'err', text: result.error || 'Import nie powiódł się.' });
+      } else {
+        setImportStatus({
+          type: 'ok',
+          text: `Wgrano wynik z pliku (${parsed.tokenUsed}). Jest już w raporcie i na liście linków.`,
+        });
+        onTokensUpdated();
+      }
+    } catch (err: any) {
+      setImportStatus({ type: 'err', text: err?.message || 'Nie udało się odczytać pliku.' });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -304,8 +333,8 @@ Dziękuję za Twój czas i pomoc!`;
                 )}
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Używa adresu <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-indigo-700">ais-pre-...</code>. 
-                <strong>Nie wymaga konta ani logowania Google.</strong>
+                Adres publiczny na Synology: <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-indigo-700">https://inyfinn.synology.me/panel-ankiet</code>.
+                <strong> Nie wymaga konta ani logowania Google.</strong> Wypełnienia zapisują się w bazie na NAS.
               </p>
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
@@ -438,6 +467,46 @@ Dziękuję za Twój czas i pomoc!`;
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl border border-emerald-200/80 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Upload className="w-4 h-4 text-emerald-700" />
+              <h3 className="font-extrabold text-slate-900 text-base">Dodaj wynik z pliku</h3>
+            </div>
+            <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+              Gdy ktoś wypełni ankietę offline albo pobierze kopię na końcu (JSON, ZIP, PDF z danymi importu),
+              wgraj ten plik tutaj — wynik trafi do tej samej bazy na Synology i do raportu.
+              JPG/PNG to tylko podgląd; do importu potrzebny jest <strong>.kw360.json</strong> albo <strong>ZIP</strong> z pakietu.
+            </p>
+          </div>
+          <label className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-xs sm:text-sm font-bold cursor-pointer shadow-2xs ${isImporting ? 'bg-slate-400' : 'bg-emerald-700 hover:bg-emerald-800'}`}>
+            <FileArchive className="w-4 h-4" />
+            <span>{isImporting ? 'Wgrywanie...' : 'Wybierz plik wyniku'}</span>
+            <input
+              type="file"
+              className="hidden"
+              accept=".json,.zip,.pdf,.txt,.html,.kw360.json,application/json,application/zip,application/pdf"
+              disabled={isImporting}
+              onChange={async (e) => {
+                const file = e.target.files?.[0] || null;
+                e.target.value = '';
+                await handleImportFile(file);
+              }}
+            />
+          </label>
+        </div>
+        {importStatus && (
+          <div className={`mt-3 text-xs font-semibold rounded-xl px-3 py-2 border ${
+            importStatus.type === 'ok'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+              : 'bg-rose-50 text-rose-900 border-rose-200'
+          }`}>
+            {importStatus.text}
+          </div>
+        )}
       </div>
 
       {/* List of Tokens with Direct Links and One-Click Copy */}

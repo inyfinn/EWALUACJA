@@ -4,11 +4,12 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
-app.use(express.json());
+app.set('trust proxy', true);
+app.use(express.json({ limit: '12mb' }));
 
-const DATA_FILE = path.join(process.cwd(), 'data', 'survey-store.json');
+const DATA_FILE = process.env.DATA_FILE || path.join(process.cwd(), 'data', 'survey-store.json');
 
 interface VoterToken {
   id: string;
@@ -200,6 +201,77 @@ app.patch('/api/responses/:id/exclude', (req, res) => {
   res.json({ success: true, response: resp });
 });
 
+function normalizeImportedResponse(raw: any): SurveyResponse | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const payload = raw.response && typeof raw.response === 'object' ? raw.response : raw;
+  if (typeof payload.tokenUsed !== 'string' || !payload.answers || typeof payload.answers !== 'object') {
+    return null;
+  }
+  return {
+    id: typeof payload.id === 'string' && payload.id.trim() ? payload.id : `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: payload.createdAt || new Date().toISOString(),
+    tokenUsed: String(payload.tokenUsed).trim().toUpperCase(),
+    answers: payload.answers,
+    selectedFactors: payload.selectedFactors || {},
+    dimensionComments: payload.dimensionComments || {},
+    collaborationContext: payload.collaborationContext || '',
+    teamRelation: payload.teamRelation || '',
+    excludedFromReport: Boolean(payload.excludedFromReport),
+  };
+}
+
+function upsertImportedResponse(store: StoreData, response: SurveyResponse) {
+  const existingIdx = store.responses.findIndex(r => r.id === response.id);
+  if (existingIdx >= 0) {
+    store.responses[existingIdx] = { ...store.responses[existingIdx], ...response };
+  } else {
+    store.responses.push(response);
+  }
+
+  const tokenCode = response.tokenUsed.trim().toUpperCase();
+  let token = store.tokens.find(t => t.code.trim().toUpperCase() === tokenCode);
+  if (!token) {
+    token = {
+      id: `token_import_${Date.now()}`,
+      code: tokenCode || `IMP-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+      label: `Import z pliku (${tokenCode || 'bez kodu'})`,
+      used: true,
+      usedAt: response.createdAt,
+      responseId: response.id,
+    };
+    store.tokens.push(token);
+  } else {
+    token.used = true;
+    token.usedAt = token.usedAt || response.createdAt;
+    token.responseId = response.id;
+  }
+}
+
+app.post('/api/responses/import', (req, res) => {
+  const imported = normalizeImportedResponse(req.body);
+  if (!imported) {
+    return res.status(400).json({
+      success: false,
+      error: 'Plik nie zawiera rozpoznawalnego wyniku ankiety (wymagane pola: tokenUsed, answers).',
+    });
+  }
+
+  const store = readStore();
+  upsertImportedResponse(store, imported);
+  writeStore(store);
+  res.json({ success: true, response: imported });
+});
+
+app.get('/api/store/export', (_req, res) => {
+  const store = readStore();
+  res.json({
+    format: 'kubara-ewaluacja-360-store',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    ...store,
+  });
+});
+
 app.post('/api/responses', (req, res) => {
   const response = req.body as SurveyResponse;
   if (!response || !response.tokenUsed) {
@@ -292,6 +364,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Survey store: ${DATA_FILE}`);
   });
 }
 
