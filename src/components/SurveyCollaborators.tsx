@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { UserPlus, Users, X } from 'lucide-react';
+import { Check, Copy, UserPlus, Users, X } from 'lucide-react';
 import { ManagedSurvey } from '../types';
-import { fetchPanels, updateSurveyApi, type CmsPanel } from '../utils/cmsApi';
+import { createPanelApi, fetchPanels, updateSurveyApi, type CmsPanel } from '../utils/cmsApi';
 import { getSessionPanel } from '../utils/authSession';
 import { HintTooltip } from './HintTooltip';
 import { ConfirmPopover } from './ConfirmPopover';
@@ -15,13 +15,18 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
   const me = getSessionPanel();
   const [panels, setPanels] = useState<CmsPanel[]>([]);
   const [pickId, setPickId] = useState('');
+  const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ name: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const reloadPanels = async () => {
+    setPanels(await fetchPanels());
+  };
 
   useEffect(() => {
-    fetchPanels()
-      .then(setPanels)
-      .catch((e) => setError(e.message || 'Nie udało się wczytać listy paneli.'));
+    reloadPanels().catch((e) => setError(e.message || 'Nie udało się wczytać listy paneli.'));
   }, []);
 
   const ownerIds = survey.ownerIds || [];
@@ -45,15 +50,42 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
     }
   };
 
-  const handleAdd = async (e: FormEvent) => {
+  const handleAddExisting = async (e: FormEvent) => {
     e.preventDefault();
     if (!pickId || ownerIds.includes(pickId)) return;
     await saveOwners([...ownerIds, pickId]);
   };
 
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (name.length < 2) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const person = await createPanelApi(name, survey.id);
+      setCreated({ name: person.name, password: person.password });
+      setCopied(false);
+      setNewName('');
+      await reloadPanels();
+      await onUpdated();
+    } catch (e: any) {
+      setError(e.message || 'Nie udało się utworzyć osoby z panelem.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleRemove = async (id: string) => {
     if (ownerIds.length <= 1) return;
     await saveOwners(ownerIds.filter((oid) => oid !== id));
+  };
+
+  const copyPassword = async () => {
+    if (!created) return;
+    await navigator.clipboard.writeText(created.password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
@@ -108,8 +140,8 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
         })}
       </div>
 
-      {candidates.length > 0 ? (
-        <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
+      {candidates.length > 0 && (
+        <form onSubmit={handleAddExisting} className="flex flex-wrap items-center gap-2 mb-3">
           <select
             value={pickId}
             onChange={(e) => setPickId(e.target.value)}
@@ -117,12 +149,12 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
             className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
             aria-label="Wybierz współpracownika panelu"
           >
-            <option value="">Wybierz osobę z panelem…</option>
+            <option value="">Wybierz osobę, która już ma panel…</option>
             {candidates.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <HintTooltip text="Daje wybranej osobie dostęp do tej ankiety w Panelu Ankiet. Nie tworzy linku do wypełnienia.">
+          <HintTooltip text="Daje wybranej osobie dostęp do tej ankiety. Nie tworzy nowego hasła.">
             <button
               type="submit"
               disabled={busy || !pickId}
@@ -133,8 +165,46 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
             </button>
           </HintTooltip>
         </form>
-      ) : (
-        <p className="text-xs text-slate-500">Wszyscy, którzy mają panel, już mają dostęp do tej ankiety.</p>
+      )}
+
+      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          disabled={busy}
+          placeholder="Imię nowej osoby (np. Magda)…"
+          className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
+        />
+        <HintTooltip text="Tworzy konto do logowania. Hasło wygeneruje się samo. Przekaż je tej osobie.">
+          <button
+            type="submit"
+            disabled={busy || newName.trim().length < 2}
+            className="btn-dk-primary shrink-0 disabled:opacity-50"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Utwórz osobę z panelem</span>
+          </button>
+        </HintTooltip>
+      </form>
+
+      {created && (
+        <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-xs font-semibold text-emerald-950">
+            Konto dla {created.name} jest gotowe. Hasło pokazuje się tylko teraz. Przekaż je tej osobie, żeby mogła się zalogować.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-sm font-mono text-dk-ink">
+              {created.password}
+            </code>
+            <HintTooltip text="Kopiuje wygenerowane hasło do schowka.">
+              <button type="button" className="btn-dk-ghost !py-1.5" onClick={() => void copyPassword()}>
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? 'Skopiowano' : 'Kopiuj hasło'}</span>
+              </button>
+            </HintTooltip>
+          </div>
+        </div>
       )}
 
       {error && (

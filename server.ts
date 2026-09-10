@@ -16,21 +16,22 @@ const DATA_FILE = process.env.DATA_FILE || path.join(process.cwd(), 'data', 'sur
 
 const DEFAULT_SURVEY_ID = 'survey_ewaluacja_360';
 
-const PANELS = [
+const BUILTIN_PANELS: StoredPanel[] = [
   { id: 'karolina', name: 'Karolina', password: 'karolina2026#' },
   { id: 'krzysztof', name: 'Krzysztof', password: 'krzysztof2026#' },
   { id: 'szymon', name: 'Szymon', password: 'szymon2026#' },
   { id: 'ewa', name: 'Ewa', password: 'ewa2026#' },
   { id: 'aneta', name: 'Aneta', password: 'aneta2026#' },
-] as const;
+];
 
 function normPass(value: string) {
   return String(value || '').trim().toLowerCase();
 }
 
-function panelByPassword(password: string) {
-  const needle = normPass(password);
-  return PANELS.find((p) => normPass(p.password) === needle) || null;
+interface StoredPanel {
+  id: string;
+  name: string;
+  password: string;
 }
 
 interface SurveyField {
@@ -130,6 +131,7 @@ interface StoreData {
   };
   templates: StoredTemplate[];
   sessions: StoreSession[];
+  panels: StoredPanel[];
 }
 
 function slugify(input: string): string {
@@ -205,6 +207,7 @@ function getDefaultStore(): StoreData {
     trash: { surveys: [], responses: [] },
     templates: seedBuiltinTemplates(),
     sessions: [],
+    panels: [],
   };
 }
 
@@ -219,6 +222,9 @@ function migrateStore(parsed: any): StoreData {
     },
     templates: Array.isArray(parsed.templates) ? parsed.templates : [],
     sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+    panels: Array.isArray(parsed.panels)
+      ? parsed.panels.filter((p: any) => p && typeof p.id === 'string' && typeof p.name === 'string' && typeof p.password === 'string')
+      : [],
   };
   if (store.surveys.length === 0) {
     store.surveys = [default360Survey()];
@@ -294,13 +300,50 @@ function writeStore(data: StoreData) {
   }
 }
 
+function allPanels(store: StoreData): StoredPanel[] {
+  const builtinIds = new Set(BUILTIN_PANELS.map((p) => p.id));
+  const extra = (store.panels || []).filter((p) => p.id && p.name && p.password && !builtinIds.has(p.id));
+  return [...BUILTIN_PANELS, ...extra];
+}
+
+function panelByPassword(store: StoreData, password: string) {
+  const needle = normPass(password);
+  return allPanels(store).find((p) => normPass(p.password) === needle) || null;
+}
+
+function uniquePanelId(store: StoreData, name: string): string {
+  const base = slugify(name) || `osoba-${Date.now().toString(36)}`;
+  const taken = new Set(allPanels(store).map((p) => p.id));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+function generatePanelPassword(existing: StoredPanel[]): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  for (let attempt = 0; attempt < 30; attempt++) {
+    let rand = '';
+    for (let i = 0; i < 8; i++) {
+      rand += chars.charAt(crypto.randomInt(chars.length));
+    }
+    const password = `${rand}#`;
+    if (!existing.some((p) => normPass(p.password) === normPass(password))) return password;
+  }
+  return `${crypto.randomBytes(6).toString('hex')}#`;
+}
+
+function publicPanels(store: StoreData) {
+  return allPanels(store).map((p) => ({ id: p.id, name: p.name }));
+}
+
 function panelFromRequest(req: express.Request, store: StoreData) {
   const header = String(req.headers.authorization || '');
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!token) return null;
   const session = store.sessions.find((s) => s.token === token);
   if (!session) return null;
-  return PANELS.find((p) => p.id === session.panelId) || null;
+  return allPanels(store).find((p) => p.id === session.panelId) || null;
 }
 
 function requirePanel(req: express.Request, res: express.Response) {
@@ -321,17 +364,13 @@ function ownedSurveys(store: StoreData, panelId: string) {
   return store.surveys.filter((s) => canAccessSurvey(s, panelId));
 }
 
-function publicPanels() {
-  return PANELS.map((p) => ({ id: p.id, name: p.name }));
-}
-
 app.post('/api/auth/login', (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const panel = panelByPassword(password);
+  const store = readStore();
+  const panel = panelByPassword(store, password);
   if (!panel) {
     return res.status(401).json({ error: 'Nieprawidłowe hasło.' });
   }
-  const store = readStore();
   const token = crypto.randomBytes(24).toString('hex');
   store.sessions = store.sessions.filter((s) => s.panelId !== panel.id);
   store.sessions.push({ token, panelId: panel.id, createdAt: new Date().toISOString() });
@@ -359,7 +398,42 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/panels', (req, res) => {
   const ctx = requirePanel(req, res);
   if (!ctx) return;
-  res.json(publicPanels());
+  res.json(publicPanels(ctx.store));
+});
+
+app.post('/api/panels', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (name.length < 2) {
+    return res.status(400).json({ error: 'Wpisz imię nowej osoby (minimum 2 znaki).' });
+  }
+  const surveyId = typeof req.body?.surveyId === 'string' ? req.body.surveyId : '';
+  let survey: ManagedSurvey | undefined;
+  if (surveyId) {
+    survey = store.surveys.find((s) => s.id === surveyId);
+    if (!survey || !canAccessSurvey(survey, panel.id)) {
+      return res.status(404).json({ error: 'Nie ma takiej ankiety, żeby dodać do niej tę osobę.' });
+    }
+  }
+  const id = uniquePanelId(store, name);
+  const password = generatePanelPassword(allPanels(store));
+  const created: StoredPanel = { id, name, password };
+  store.panels = [...(store.panels || []), created];
+  if (survey) {
+    const owners = [...(survey.ownerIds || [])];
+    if (!owners.includes(id)) owners.push(id);
+    survey.ownerIds = owners;
+    survey.updatedAt = new Date().toISOString();
+  }
+  writeStore(store);
+  res.json({
+    id,
+    name,
+    password,
+    survey: survey || undefined,
+  });
 });
 
 function isPreviewCode(code: string) {
@@ -600,7 +674,7 @@ app.put('/api/surveys/:id', (req, res) => {
     survey.slug = uniqueSlug(store, body.slug, survey.id);
   }
   if (Array.isArray(body.ownerIds)) {
-    const allowed = new Set<string>(PANELS.map((p) => p.id));
+    const allowed = new Set<string>(allPanels(store).map((p) => p.id));
     const ids: string[] = [];
     for (const raw of body.ownerIds) {
       if (typeof raw === 'string' && allowed.has(raw) && !ids.includes(raw)) ids.push(raw);

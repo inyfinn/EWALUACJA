@@ -28,6 +28,21 @@ export async function fetchPanels(): Promise<CmsPanel[]> {
   return res.json();
 }
 
+export async function createPanelApi(name: string, surveyId?: string): Promise<{
+  id: string;
+  name: string;
+  password: string;
+}> {
+  const res = await fetch(apiUrl('api/panels'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ name, surveyId }),
+  });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || 'Nie udało się utworzyć osoby z panelem.');
+  return data;
+}
+
 export async function fetchSurveys(): Promise<ManagedSurvey[]> {
   const res = await fetch(apiUrl('api/surveys'), { headers: authHeaders(false) });
   if (!res.ok) throw new Error('Nie udało się pobrać listy ankiet.');
