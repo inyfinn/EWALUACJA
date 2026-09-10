@@ -104,7 +104,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
               onClick={onCancel}
               className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
             >
-              Wróć do formularza ankiety
+              Anuluj
             </button>
           </div>
         </form>

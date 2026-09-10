@@ -1,6 +1,7 @@
 import { SurveyQuestion, SurveyResponse, VoterToken, DimensionStats, DimensionKey, FactorCount } from '../types';
 import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
 import { apiUrl } from './apiClient';
+import { fillUrl } from './routerBase';
 
 const STORAGE_KEYS = {
   TOKENS: 'kubara_eval_tokens_v6',
@@ -56,9 +57,10 @@ export function initializeDefaultResponses(): SurveyResponse[] {
 // Server Sync Functions
 // -------------------------------------------------------------------
 
-export async function fetchTokensFromServer(): Promise<VoterToken[]> {
+export async function fetchTokensFromServer(surveyId?: string): Promise<VoterToken[]> {
   try {
-    const res = await fetch(apiUrl('api/tokens'));
+    const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : '';
+    const res = await fetch(apiUrl(`api/tokens${qs}`));
     if (res.ok) {
       const data: VoterToken[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -72,9 +74,10 @@ export async function fetchTokensFromServer(): Promise<VoterToken[]> {
   return getStoredTokens();
 }
 
-export async function fetchResponsesFromServer(): Promise<SurveyResponse[]> {
+export async function fetchResponsesFromServer(surveyId?: string): Promise<SurveyResponse[]> {
   try {
-    const res = await fetch(apiUrl('api/responses'));
+    const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : '';
+    const res = await fetch(apiUrl(`api/responses${qs}`));
     if (res.ok) {
       const data: SurveyResponse[] = await res.json();
       if (Array.isArray(data)) {
@@ -143,12 +146,12 @@ export async function importResponseFromFileAsync(response: SurveyResponse): Pro
   }
 }
 
-export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
+export async function addCustomTokenAsync(label: string, surveyId?: string): Promise<VoterToken> {
   try {
     const res = await fetch(apiUrl('api/tokens'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label }),
+      body: JSON.stringify({ label, surveyId }),
     });
     if (res.ok) {
       const token = await res.json();
@@ -421,11 +424,8 @@ export function setSurveyCustomBaseUrl(url: string | null) {
 }
 
 // Generate direct URL for a specific token
-export function getSurveyUrl(tokenCode: string): string {
-  const info = getSurveyBaseUrlInfo();
-  const code = tokenCode.trim().toUpperCase();
-  if (!info.url) return `?token=${code}`;
-  return `${info.url.replace(/\/+$/, '')}/?token=${code}`;
+export function getSurveyUrl(tokenCode: string, slug = 'ewaluacja-360'): string {
+  return fillUrl(slug, tokenCode);
 }
 
 export function validateTokenCode(code: string, currentTokens?: VoterToken[]): { valid: boolean; used: boolean; label?: string; error?: string; token?: VoterToken } {
@@ -527,7 +527,7 @@ export function computeDimensionsAnalytics(
       const subScores: number[] = [];
       q.subQuestions.forEach((sq, sqIdx) => {
         if (resp.answers && typeof resp.answers[sq.id] === 'number') {
-          subScores.push(resp.answers[sq.id]);
+          subScores.push(resp.answers[sq.id] as number);
           return;
         }
         if (!resp.answers) return;
@@ -545,7 +545,7 @@ export function computeDimensionsAnalytics(
         ];
         for (const fb of fallbacks) {
           if (typeof resp.answers[fb] === 'number') {
-            subScores.push(resp.answers[fb]);
+            subScores.push(resp.answers[fb] as number);
             return;
           }
         }

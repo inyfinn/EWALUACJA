@@ -20,6 +20,7 @@ import confetti from 'canvas-confetti';
 interface SurveyFillViewProps {
   questions: SurveyQuestion[];
   prefilledToken?: string;
+  surveyId?: string;
   onCompleted: () => void;
   onSwitchToAdmin?: () => void;
   onOpenAdminLogin?: () => void;
@@ -168,6 +169,7 @@ const GestureSlider = ({ value, onChange, sqId, scoreDescriptions }: { value: nu
 export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   questions,
   prefilledToken = '',
+  surveyId,
   onCompleted,
   onSwitchToAdmin,
   onOpenAdminLogin,
@@ -282,6 +284,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       tokenUsed: actualTokenUsed,
+      surveyId,
       answers,
       selectedFactors,
       dimensionComments,

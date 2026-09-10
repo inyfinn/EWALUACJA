@@ -38,25 +38,62 @@ export interface SurveyQuestion {
   };
 }
 
+export type SurveyFieldType =
+  | 'short_text'
+  | 'long_text'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'scale'
+  | 'yes_no'
+  | 'number';
+
+export interface SurveyField {
+  id: string;
+  type: SurveyFieldType;
+  label: string;
+  help?: string;
+  required: boolean;
+  options?: string[];
+  scaleMin?: number;
+  scaleMax?: number;
+}
+
+export type SurveyEngine = 'generic' | '360';
+export type SurveyStatus = 'draft' | 'live' | 'closed';
+
+export interface ManagedSurvey {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  status: SurveyStatus;
+  engine: SurveyEngine;
+  fields: SurveyField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SurveyResponse {
   id: string;
   createdAt: string;
   tokenUsed: string;
-  answers: Record<string, number>; // subQuestionId -> score (1-10)
-  selectedFactors: Record<string, string[]>; // questionId -> array of selected factor texts
-  dimensionComments: Record<string, string>; // questionId -> custom comment
+  surveyId?: string;
+  answers: Record<string, number | string | string[]>;
+  selectedFactors: Record<string, string[]>;
+  dimensionComments: Record<string, string>;
   collaborationContext: string;
   teamRelation: string;
-  excludedFromReport?: boolean; // When true, excluded from report (e.g. test)
+  excludedFromReport?: boolean;
 }
 
 export interface VoterToken {
   id: string;
   code: string;
-  label: string; // e.g. "Współpracownik (Dział Logistyki / Produkcji)", "Osoba 2"
+  label: string;
   used: boolean;
   usedAt?: string;
   responseId?: string;
+  surveyId?: string;
 }
 
 export interface SurveyConfig {

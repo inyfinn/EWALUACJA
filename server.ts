@@ -11,6 +11,31 @@ app.use(express.json({ limit: '12mb' }));
 
 const DATA_FILE = process.env.DATA_FILE || path.join(process.cwd(), 'data', 'survey-store.json');
 
+const DEFAULT_SURVEY_ID = 'survey_ewaluacja_360';
+
+interface SurveyField {
+  id: string;
+  type: string;
+  label: string;
+  help?: string;
+  required: boolean;
+  options?: string[];
+  scaleMin?: number;
+  scaleMax?: number;
+}
+
+interface ManagedSurvey {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  status: 'draft' | 'live' | 'closed';
+  engine: 'generic' | '360';
+  fields: SurveyField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface VoterToken {
   id: string;
   code: string;
@@ -18,13 +43,15 @@ interface VoterToken {
   used: boolean;
   usedAt?: string;
   responseId?: string;
+  surveyId?: string;
 }
 
 interface SurveyResponse {
   id: string;
   createdAt: string;
   tokenUsed: string;
-  answers: Record<string, number>;
+  surveyId?: string;
+  answers: Record<string, any>;
   selectedFactors: Record<string, string[]>;
   dimensionComments?: Record<string, string>;
   collaborationContext?: string;
@@ -33,24 +60,81 @@ interface SurveyResponse {
 }
 
 interface StoreData {
+  surveys: ManagedSurvey[];
   tokens: VoterToken[];
   responses: SurveyResponse[];
 }
 
-function getDefaultStore(): StoreData {
+function slugify(input: string): string {
+  const base = input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return base || `ankieta-${Date.now().toString(36)}`;
+}
+
+function uniqueSlug(store: StoreData, desired: string, exceptId?: string): string {
+  let slug = slugify(desired);
+  let n = 2;
+  while (store.surveys.some(s => s.slug === slug && s.id !== exceptId)) {
+    slug = `${slugify(desired)}-${n}`;
+    n += 1;
+  }
+  return slug;
+}
+
+function default360Survey(): ManagedSurvey {
+  const now = new Date().toISOString();
   return {
+    id: DEFAULT_SURVEY_ID,
+    slug: 'ewaluacja-360',
+    title: 'Ewaluacja współpracy 360° — Krzysztof Wieczorek',
+    description: 'Anonimowa ankieta roczna: komunikacja, terminowość, jakość, wkład własny.',
+    status: 'live',
+    engine: '360',
+    fields: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function getDefaultStore(): StoreData {
+  const survey = default360Survey();
+  return {
+    surveys: [survey],
     tokens: [
-      { id: 'token_1_kubara', code: 'KUB-1RNHC', label: 'Współpracownik 1 (Dział Produkcji / Technologii)', used: false },
-      { id: 'token_2_kubara', code: 'KUB-2AB4K', label: 'Współpracownik 2 (Dział Handlowy / B2B)', used: false },
-      { id: 'token_3_kubara', code: 'KUB-3M79X', label: 'Współpracownik 3 (Logistyka / Magazyn)', used: false },
-      { id: 'token_4_kubara', code: 'KUB-4PT2W', label: 'Współpracownik 4 (Dział Jakości i Certyfikacji)', used: false },
-      { id: 'token_5_kubara', code: 'KUB-5H83Q', label: 'Współpracownik 5 (Finanse / Administracja)', used: false },
-      { id: 'token_6_kubara', code: 'KUB-6R91E', label: 'Współpracownik 6 (Projekt międzywydziałowy)', used: false },
-      { id: 'token_7_kubara', code: 'KUB-7Y45Z', label: 'Współpracownik 7 (Współpracownik kluczowy)', used: false },
-      { id: 'token_8_kubara', code: 'KUB-8N23L', label: 'Współpracownik 8 (Dział Obsługi Klienta)', used: false }
+      { id: 'token_1_kubara', code: 'KUB-1RNHC', label: 'Współpracownik 1 (Dział Produkcji / Technologii)', used: false, surveyId: survey.id },
+      { id: 'token_2_kubara', code: 'KUB-2AB4K', label: 'Współpracownik 2 (Dział Handlowy / B2B)', used: false, surveyId: survey.id },
+      { id: 'token_3_kubara', code: 'KUB-3M79X', label: 'Współpracownik 3 (Logistyka / Magazyn)', used: false, surveyId: survey.id },
+      { id: 'token_4_kubara', code: 'KUB-4PT2W', label: 'Współpracownik 4 (Dział Jakości i Certyfikacji)', used: false, surveyId: survey.id },
+      { id: 'token_5_kubara', code: 'KUB-5H83Q', label: 'Współpracownik 5 (Finanse / Administracja)', used: false, surveyId: survey.id },
+      { id: 'token_6_kubara', code: 'KUB-6R91E', label: 'Współpracownik 6 (Projekt międzywydziałowy)', used: false, surveyId: survey.id },
+      { id: 'token_7_kubara', code: 'KUB-7Y45Z', label: 'Współpracownik 7 (Współpracownik kluczowy)', used: false, surveyId: survey.id },
+      { id: 'token_8_kubara', code: 'KUB-8N23L', label: 'Współpracownik 8 (Dział Obsługi Klienta)', used: false, surveyId: survey.id }
     ],
     responses: []
   };
+}
+
+function migrateStore(parsed: any): StoreData {
+  const store: StoreData = {
+    surveys: Array.isArray(parsed.surveys) ? parsed.surveys : [],
+    tokens: Array.isArray(parsed.tokens) ? parsed.tokens : getDefaultStore().tokens,
+    responses: Array.isArray(parsed.responses) ? parsed.responses : [],
+  };
+  if (store.surveys.length === 0) {
+    store.surveys = [default360Survey()];
+  }
+  store.tokens.forEach(t => {
+    if (!t.surveyId) t.surveyId = DEFAULT_SURVEY_ID;
+  });
+  store.responses.forEach(r => {
+    if (!r.surveyId) r.surveyId = DEFAULT_SURVEY_ID;
+  });
+  return store;
 }
 
 function readStore(): StoreData {
@@ -64,9 +148,11 @@ function readStore(): StoreData {
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (!parsed.tokens || !Array.isArray(parsed.tokens)) parsed.tokens = getDefaultStore().tokens;
-    if (!parsed.responses || !Array.isArray(parsed.responses)) parsed.responses = [];
-    return parsed;
+    const migrated = migrateStore(parsed);
+    if (!Array.isArray(parsed.surveys) || parsed.surveys.length === 0) {
+      writeStore(migrated);
+    }
+    return migrated;
   } catch (err) {
     console.error('Failed to read data store:', err);
     return getDefaultStore();
@@ -91,32 +177,114 @@ app.get('/api/health', (req, res) => {
   const store = readStore();
   res.json({
     status: 'ok',
+    surveysCount: store.surveys.length,
     tokensCount: store.tokens.length,
     responsesCount: store.responses.length,
   });
 });
 
+app.get('/api/surveys', (_req, res) => {
+  const store = readStore();
+  res.json(store.surveys);
+});
+
+app.get('/api/surveys/by-slug/:slug', (req, res) => {
+  const store = readStore();
+  const survey = store.surveys.find(s => s.slug === req.params.slug);
+  if (!survey) {
+    return res.status(404).json({ error: 'Nie znaleziono ankiety o tym adresie.' });
+  }
+  res.json(survey);
+});
+
+app.get('/api/surveys/:id', (req, res) => {
+  const store = readStore();
+  const survey = store.surveys.find(s => s.id === req.params.id);
+  if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  res.json(survey);
+});
+
+app.post('/api/surveys', (req, res) => {
+  const body = req.body || {};
+  const title = typeof body.title === 'string' && body.title.trim() ? body.title.trim() : 'Nowa ankieta';
+  const store = readStore();
+  const now = new Date().toISOString();
+  const survey: ManagedSurvey = {
+    id: `survey_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    slug: uniqueSlug(store, body.slug || title),
+    title,
+    description: typeof body.description === 'string' ? body.description : '',
+    status: body.status === 'draft' || body.status === 'closed' ? body.status : 'live',
+    engine: body.engine === '360' ? '360' : 'generic',
+    fields: Array.isArray(body.fields) ? body.fields : [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.surveys.push(survey);
+  writeStore(store);
+  res.json(survey);
+});
+
+app.put('/api/surveys/:id', (req, res) => {
+  const store = readStore();
+  const survey = store.surveys.find(s => s.id === req.params.id);
+  if (!survey) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  const body = req.body || {};
+  if (typeof body.title === 'string' && body.title.trim()) survey.title = body.title.trim();
+  if (typeof body.description === 'string') survey.description = body.description;
+  if (body.status === 'draft' || body.status === 'live' || body.status === 'closed') survey.status = body.status;
+  if (body.engine === '360' || body.engine === 'generic') survey.engine = body.engine;
+  if (Array.isArray(body.fields)) survey.fields = body.fields;
+  if (typeof body.slug === 'string' && body.slug.trim()) {
+    survey.slug = uniqueSlug(store, body.slug, survey.id);
+  }
+  survey.updatedAt = new Date().toISOString();
+  writeStore(store);
+  res.json(survey);
+});
+
+app.delete('/api/surveys/:id', (req, res) => {
+  const { id } = req.params;
+  if (id === DEFAULT_SURVEY_ID) {
+    return res.status(400).json({ error: 'Nie można usunąć wbudowanej ankiety 360°. Możesz ją zarchiwizować (status: zamknięta).' });
+  }
+  const store = readStore();
+  const exists = store.surveys.some(s => s.id === id);
+  if (!exists) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  store.surveys = store.surveys.filter(s => s.id !== id);
+  store.tokens = store.tokens.filter(t => t.surveyId !== id);
+  store.responses = store.responses.filter(r => r.surveyId !== id);
+  writeStore(store);
+  res.json({ success: true });
+});
+
 app.get('/api/tokens', (req, res) => {
   const store = readStore();
-  res.json(store.tokens);
+  const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
+  res.json(surveyId ? store.tokens.filter(t => t.surveyId === surveyId) : store.tokens);
 });
 
 app.post('/api/tokens', (req, res) => {
-  const { label } = req.body || {};
+  const { label, surveyId } = req.body || {};
   const store = readStore();
+  const resolvedSurveyId = typeof surveyId === 'string' && surveyId
+    ? surveyId
+    : (store.surveys[0]?.id || DEFAULT_SURVEY_ID);
 
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let rand = '';
   for (let i = 0; i < 4; i++) {
     rand += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  const code = `KUB-${store.tokens.length + 1}${rand}`;
+  const scopedCount = store.tokens.filter(t => t.surveyId === resolvedSurveyId).length;
+  const code = `KUB-${scopedCount + 1}${rand}`;
 
   const newToken: VoterToken = {
     id: `token_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     code,
-    label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Współpracownik ${store.tokens.length + 1}`,
+    label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Współpracownik ${scopedCount + 1}`,
     used: false,
+    surveyId: resolvedSurveyId,
   };
 
   store.tokens.push(newToken);
@@ -162,7 +330,8 @@ app.post('/api/tokens/:id/reset', (req, res) => {
 
 app.get('/api/responses', (req, res) => {
   const store = readStore();
-  res.json(store.responses);
+  const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
+  res.json(surveyId ? store.responses.filter(r => r.surveyId === surveyId) : store.responses);
 });
 
 app.delete('/api/responses/:id', (req, res) => {
@@ -211,6 +380,7 @@ function normalizeImportedResponse(raw: any): SurveyResponse | null {
     id: typeof payload.id === 'string' && payload.id.trim() ? payload.id : `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     createdAt: payload.createdAt || new Date().toISOString(),
     tokenUsed: String(payload.tokenUsed).trim().toUpperCase(),
+    surveyId: payload.surveyId || DEFAULT_SURVEY_ID,
     answers: payload.answers,
     selectedFactors: payload.selectedFactors || {},
     dimensionComments: payload.dimensionComments || {},
@@ -238,6 +408,7 @@ function upsertImportedResponse(store: StoreData, response: SurveyResponse) {
       used: true,
       usedAt: response.createdAt,
       responseId: response.id,
+      surveyId: response.surveyId || DEFAULT_SURVEY_ID,
     };
     store.tokens.push(token);
   } else {
@@ -280,6 +451,7 @@ app.post('/api/responses', (req, res) => {
 
   const store = readStore();
   const tokenCode = response.tokenUsed.trim().toUpperCase();
+  response.surveyId = response.surveyId || DEFAULT_SURVEY_ID;
 
   // Allow preview token
   if (tokenCode === 'PODGLAD' || tokenCode === 'PREVIEW' || tokenCode === 'DEMO') {
@@ -300,6 +472,7 @@ app.post('/api/responses', (req, res) => {
         used: true,
         usedAt: new Date().toISOString(),
         responseId: response.id,
+        surveyId: response.surveyId,
       };
       store.tokens.push(autoToken);
       store.responses.push(response);
@@ -333,12 +506,24 @@ app.post('/api/responses', (req, res) => {
 
 app.post('/api/clear-responses', (req, res) => {
   const store = readStore();
-  store.responses = [];
-  store.tokens.forEach(t => {
-    t.used = false;
-    delete t.usedAt;
-    delete t.responseId;
-  });
+  const surveyId = (req.body && req.body.surveyId) || req.query.surveyId;
+  if (surveyId) {
+    store.responses = store.responses.filter(r => r.surveyId !== surveyId);
+    store.tokens.forEach(t => {
+      if (t.surveyId === surveyId) {
+        t.used = false;
+        delete t.usedAt;
+        delete t.responseId;
+      }
+    });
+  } else {
+    store.responses = [];
+    store.tokens.forEach(t => {
+      t.used = false;
+      delete t.usedAt;
+      delete t.responseId;
+    });
+  }
   writeStore(store);
   res.json({ success: true });
 });
@@ -358,6 +543,9 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

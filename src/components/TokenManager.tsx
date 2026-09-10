@@ -39,10 +39,13 @@ import {
   importResponseFromFileAsync
 } from '../utils/surveyStorage';
 import { parseSurveyFile } from '../utils/surveyTransfer';
+import { fillUrl } from '../utils/routerBase';
 
 interface TokenManagerProps {
   tokens: VoterToken[];
   responses?: SurveyResponse[];
+  surveyId?: string;
+  surveySlug?: string;
   onTokensUpdated: () => void;
   onSelectTokenToFill?: (code: string) => void;
   onGenerateToken?: (label?: string) => void;
@@ -53,6 +56,8 @@ interface TokenManagerProps {
 export const TokenManager: React.FC<TokenManagerProps> = ({
   tokens,
   responses,
+  surveyId,
+  surveySlug,
   onTokensUpdated,
   onSelectTokenToFill,
 }) => {
@@ -105,14 +110,14 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
 
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addCustomTokenAsync(newLabel.trim() || `Współpracownik ${tokens.length + 1}`);
+    await addCustomTokenAsync(newLabel.trim() || `Współpracownik ${tokens.length + 1}`, surveyId);
     setNewLabel('');
     onTokensUpdated();
   };
 
   const handleBatch = async (count: number) => {
     for (let i = 0; i < count; i++) {
-      await addCustomTokenAsync(`Współpracownik ${tokens.length + i + 1}`);
+      await addCustomTokenAsync(`Współpracownik ${tokens.length + i + 1}`, surveyId);
     }
     onTokensUpdated();
   };
@@ -170,7 +175,7 @@ export const TokenManager: React.FC<TokenManagerProps> = ({
   };
 
   const copyInvitationTemplate = (token: VoterToken) => {
-    const directLink = getSurveyUrl(token.code);
+    const directLink = getSurveyUrl(token.code, surveySlug);
 
     const message = `Cześć! 👋
 Mija rok mojej pracy w firmie Kubara Sp. z o.o. Zwracam się z uprzejmą prośbą o wypełnienie krótkiej, w 100% anonimowej ankiety dotyczącej naszej codziennej współpracy (Ocena pracownika: Krzysztof Wieczorek).
@@ -293,7 +298,7 @@ Dziękuję za Twój czas i pomoc!`;
             </button>
             {tokens.length > 0 && (
               <a
-                href={getSurveyUrl(tokens[0].code)}
+                href={getSurveyUrl(tokens[0].code, surveySlug)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
@@ -530,7 +535,7 @@ Dziękuję za Twój czas i pomoc!`;
         ) : (
           <div className="divide-y divide-slate-100">
             {tokens.map((token, idx) => {
-              const directLink = getSurveyUrl(token.code);
+              const directLink = getSurveyUrl(token.code, surveySlug);
               const linkedResponse = responses?.find(
                 r => r.id === token.responseId || r.tokenUsed.trim().toUpperCase() === token.code.trim().toUpperCase()
               );

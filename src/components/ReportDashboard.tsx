@@ -316,7 +316,7 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
                 questions.forEach((q, qIdx) => {
                   q.subQuestions.forEach((sq, sqIdx) => {
                     if (typeof resp.answers?.[sq.id] === 'number') {
-                      subScores.push(resp.answers[sq.id]);
+                      subScores.push(resp.answers[sq.id] as number);
                       return;
                     }
                     const dimIdx = qIdx + 1;
@@ -324,7 +324,7 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
                     const fallbacks = [`q${dimIdx}_${letter}`, `q${dimIdx}_${sqIdx + 1}`, `${q.dimension}_${sqIdx + 1}`];
                     for (const fb of fallbacks) {
                       if (typeof resp.answers?.[fb] === 'number') {
-                        subScores.push(resp.answers[fb]);
+                        subScores.push(resp.answers[fb] as number);
                         return;
                       }
                     }
