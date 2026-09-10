@@ -74,12 +74,14 @@ export function SurveyWorkspace() {
         {tab('edit', 'Treść ankiety', <FileEdit className="w-4 h-4" />, 'Pytania, opis i ustawienia tej ankiety.')}
         {tab('links', 'Zarządzaj', <Link2 className="w-4 h-4" />, 'Osoby z dostępem do panelu, unikalne linki ankietowanych i status wypełnień.')}
         {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />, 'Raport zbiorczy i poszczególne odpowiedzi.')}
-        <HintTooltip text="Otwiera formularz tak, jak widzi go respondent. Do wysłania potrzebny jest kod z zakładki Zarządzaj.">
+        <HintTooltip text="Otwiera ankietę tak, jak widzi ją osoba wypełniająca. To tylko podgląd: wynik się nie zapisze. Prawdziwe odpowiedzi zbierasz unikalnym linkiem z zakładki Zarządzaj.">
           <a
-            href={fillUrl(survey.slug)}
+            href={fillUrl(survey.slug, 'PODGLAD')}
+            target="_blank"
+            rel="noreferrer"
             className="py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 text-dk-ink/70 hover:bg-white"
           >
-            <ExternalLink className="w-4 h-4" /> Podgląd wypełniania
+            <ExternalLink className="w-4 h-4" /> Podgląd formularza
           </a>
         </HintTooltip>
       </div>

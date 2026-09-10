@@ -12,7 +12,10 @@ export function publicOriginBase(): string {
 }
 
 export function fillUrl(slug: string, tokenCode?: string): string {
-  const url = `${publicOriginBase()}s/${slug}/`;
+  const clean = String(slug || '').replace(/^\/+|\/+$/g, '');
+  const url = `${publicOriginBase()}s/${clean}`;
   if (!tokenCode) return url;
   return `${url}?token=${encodeURIComponent(tokenCode.trim().toUpperCase())}`;
 }
+
+export const PREVIEW_FILL_TOKEN = 'PODGLAD';

@@ -571,7 +571,7 @@ app.get('/api/surveys', (req, res) => {
 
 app.get('/api/surveys/by-slug/:slug', (req, res) => {
   const store = readStore();
-  const slug = req.params.slug;
+  const slug = String(req.params.slug || '').replace(/\/+$/g, '');
   const aliases: Record<string, string> = {
     'ewaluacja-pracownika': 'ewaluacja-360',
     'ewaluacja-360': 'ewaluacja-pracownika',
@@ -1172,13 +1172,12 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      if (req.path.startsWith('/api')) {
-        return res.status(404).json({ error: 'Not found' });
-      }
+    const sendIndex = (_req: express.Request, res: express.Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
-    });
+    };
+    app.use('/panel-ankiet', express.static(distPath));
+    app.use(express.static(distPath));
+    app.get(/^\/(?!api\/).*/, sendIndex);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

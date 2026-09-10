@@ -36,6 +36,7 @@ export function App() {
           </Route>
         </Route>
         <Route path="/s/:slug" element={<FillPage />} />
+        <Route path="/s/:slug/" element={<FillPage />} />
         <Route path="*" element={<GateToLogin />} />
       </Routes>
     </BrowserRouter>

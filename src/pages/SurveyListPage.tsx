@@ -230,9 +230,9 @@ export function SurveyListPage() {
                     <Copy className="w-3.5 h-3.5" /> Duplikuj
                   </button>
                 </HintTooltip>
-                <HintTooltip text="Otwiera publiczny formularz. Bez kodu w adresie nikt nie wyśle odpowiedzi.">
-                  <a href={fillUrl(survey.slug)} className="btn-dk-ghost">
-                    <ExternalLink className="w-3.5 h-3.5" /> Wypełnij
+                <HintTooltip text="Otwiera ankietę w podglądzie. Wynik się nie zapisze.">
+                  <a href={fillUrl(survey.slug, 'PODGLAD')} target="_blank" rel="noreferrer" className="btn-dk-ghost">
+                    <ExternalLink className="w-3.5 h-3.5" /> Podgląd
                   </a>
                 </HintTooltip>
               </div>
