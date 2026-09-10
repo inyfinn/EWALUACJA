@@ -465,7 +465,7 @@ app.post('/api/panels', (req, res) => {
     name,
     login: id,
     password,
-    survey: survey || undefined,
+    surveyId: survey?.id,
   });
 });
 
