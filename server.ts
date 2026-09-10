@@ -347,17 +347,28 @@ app.post('/api/auth/logout', (req, res) => {
 // API Endpoints
 // -------------------------------------------------------------
 
-app.get('/api/health', (req, res) => {
-  const store = readStore();
-  res.json({
-    status: 'ok',
-    surveysCount: store.surveys.length,
-    tokensCount: store.tokens.length,
-    responsesCount: store.responses.length,
-    trashSurveys: store.trash.surveys.length,
-    trashResponses: store.trash.responses.length,
-  });
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' });
 });
+
+function isPreviewCode(code: string) {
+  return code === 'PODGLAD' || code === 'PREVIEW' || code === 'DEMO';
+}
+
+function publicSurveyView(survey: ManagedSurvey) {
+  return {
+    id: survey.id,
+    slug: survey.slug,
+    title: survey.title,
+    description: survey.description,
+    status: survey.status,
+    engine: survey.engine,
+    fields: survey.fields,
+    questions: survey.questions,
+    archived: survey.archived,
+    subject: survey.subject,
+  };
+}
 
 function restoreSurveyRecord(store: StoreData, survey: ManagedSurvey, tokens: VoterToken[] = [], asArchived = false) {
   const existing = store.surveys.find(s => s.id === survey.id);
@@ -482,10 +493,13 @@ app.get('/api/surveys/by-slug/:slug', (req, res) => {
   };
   const survey = store.surveys.find(s => s.slug === slug)
     || (aliases[slug] ? store.surveys.find(s => s.slug === aliases[slug]) : undefined);
-  if (!survey) {
-    return res.status(404).json({ error: 'Nie znaleziono ankiety o tym adresie.' });
+  if (!survey || survey.archived || survey.status === 'draft') {
+    return res.status(404).json({ error: 'Nie ma takiej ankiety albo nie jest opublikowana.' });
   }
-  res.json(survey);
+  if (survey.status === 'closed') {
+    return res.status(409).json({ error: 'Ta ankieta jest wstrzymana i nie przyjmuje odpowiedzi.' });
+  }
+  res.json(publicSurveyView(survey));
 });
 
 app.get('/api/surveys/:id', (req, res) => {
@@ -651,14 +665,67 @@ app.post('/api/templates', (req, res) => {
   res.json(tpl);
 });
 
-app.get('/api/tokens', (req, res) => {
+app.post('/api/tokens/validate', (req, res) => {
   const store = readStore();
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+  const surveyId = typeof req.body?.surveyId === 'string' ? req.body.surveyId.trim() : '';
+  if (!code || !surveyId) {
+    return res.status(400).json({ valid: false, used: false, error: 'Brak kodu zaproszenia.' });
+  }
+
+  if (isPreviewCode(code)) {
+    const panel = panelFromRequest(req, store);
+    if (!panel) {
+      return res.status(401).json({
+        valid: false,
+        used: false,
+        error: 'Podgląd ankiety jest dostępny tylko po wejściu hasłem do panelu.',
+      });
+    }
+    const survey = store.surveys.find((s) => s.id === surveyId);
+    if (!survey || !canAccessSurvey(survey, panel.id)) {
+      return res.status(404).json({ valid: false, used: false, error: 'Nie ma takiej ankiety.' });
+    }
+    return res.json({ valid: true, used: false, preview: true, label: 'Tryb podglądu' });
+  }
+
+  const survey = store.surveys.find((s) => s.id === surveyId);
+  if (!survey || survey.archived || survey.status !== 'live') {
+    return res.status(404).json({
+      valid: false,
+      used: false,
+      error: 'Ta ankieta nie przyjmuje teraz odpowiedzi.',
+    });
+  }
+
+  const token = store.tokens.find(
+    (t) => t.code.trim().toUpperCase() === code && t.surveyId === surveyId,
+  );
+  if (!token) {
+    return res.json({ valid: false, used: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź unikalny link.' });
+  }
+  if (token.used) {
+    return res.json({
+      valid: true,
+      used: true,
+      error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każda osoba może wypełnić ankietę tylko 1 raz.',
+    });
+  }
+  return res.json({ valid: true, used: false, label: token.label });
+});
+
+app.get('/api/tokens', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
   if (surveyId) {
-    return res.json(store.tokens.filter(t => t.surveyId === surveyId));
+    const parent = store.surveys.find((s) => s.id === surveyId);
+    if (!parent || !canAccessSurvey(parent, panel.id)) {
+      return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+    }
+    return res.json(store.tokens.filter((t) => t.surveyId === surveyId));
   }
-  const panel = panelFromRequest(req, store);
-  if (!panel) return res.json([]);
   const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
   res.json(store.tokens.filter((t) => t.surveyId && ids.has(t.surveyId)));
 });
@@ -746,9 +813,16 @@ app.post('/api/tokens/:id/reset', (req, res) => {
 });
 
 app.get('/api/responses', (req, res) => {
-  const store = readStore();
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
-  res.json(surveyId ? store.responses.filter(r => r.surveyId === surveyId) : store.responses);
+  const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
+  if (surveyId) {
+    if (!ids.has(surveyId)) return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+    return res.json(store.responses.filter((r) => r.surveyId === surveyId));
+  }
+  res.json(store.responses.filter((r) => r.surveyId && ids.has(r.surveyId)));
 });
 
 app.delete('/api/responses/:id', (req, res) => {
@@ -806,6 +880,10 @@ app.patch('/api/responses/:id/exclude', (req, res) => {
   const resp = store.responses.find(r => r.id === id);
   
   if (!resp) {
+    return res.status(404).json({ success: false, error: 'Odpowiedź nie została znaleziona.' });
+  }
+  const parent = store.surveys.find((s) => s.id === resp.surveyId);
+  if (!parent || !canAccessSurvey(parent, ctx.panel.id)) {
     return res.status(404).json({ success: false, error: 'Odpowiedź nie została znaleziona.' });
   }
 
@@ -900,38 +978,35 @@ app.post('/api/responses', (req, res) => {
   const store = readStore();
   const tokenCode = response.tokenUsed.trim().toUpperCase();
   response.surveyId = response.surveyId || DEFAULT_SURVEY_ID;
+  const survey = store.surveys.find((s) => s.id === response.surveyId);
 
-  // Allow preview token
-  if (tokenCode === 'PODGLAD' || tokenCode === 'PREVIEW' || tokenCode === 'DEMO') {
-    store.responses.push(response);
-    writeStore(store);
-    return res.json({ success: true, response });
+  if (isPreviewCode(tokenCode)) {
+    const panel = panelFromRequest(req, store);
+    if (!panel || !survey || !canAccessSurvey(survey, panel.id)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Podgląd nie zapisuje odpowiedzi. Wejdź do panelu hasłem albo użyj unikalnego linku.',
+      });
+    }
+    return res.json({ success: true, response, preview: true, saved: false });
   }
 
-  const token = store.tokens.find(t => t.code.trim().toUpperCase() === tokenCode);
+  if (!survey || survey.archived || survey.status !== 'live') {
+    return res.status(400).json({
+      success: false,
+      error: 'Ta ankieta nie przyjmuje teraz odpowiedzi.',
+    });
+  }
+
+  const token = store.tokens.find(
+    (t) => t.code.trim().toUpperCase() === tokenCode && t.surveyId === response.surveyId,
+  );
 
   if (!token) {
-    // If token code is formatted like KUB-*, auto-register it to avoid locking out any recipient
-    if (tokenCode.startsWith('KUB-')) {
-      const autoToken: VoterToken = {
-        id: `token_${Date.now()}_auto`,
-        code: tokenCode,
-        label: `Współpracownik (${tokenCode})`,
-        used: true,
-        usedAt: new Date().toISOString(),
-        responseId: response.id,
-        surveyId: response.surveyId,
-      };
-      store.tokens.push(autoToken);
-      store.responses.push(response);
-      writeStore(store);
-      return res.json({ success: true, response });
-    }
     return res.status(400).json({ success: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź swój unikalny link.' });
   }
 
   if (token.used) {
-    // If token already used, check if this is an idempotent re-submission of the same response
     if (token.responseId === response.id) {
       return res.json({ success: true, response });
     }
@@ -941,7 +1016,6 @@ app.post('/api/responses', (req, res) => {
     });
   }
 
-  // Mark token as used
   token.used = true;
   token.usedAt = new Date().toISOString();
   token.responseId = response.id;

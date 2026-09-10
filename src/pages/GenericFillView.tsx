@@ -31,11 +31,15 @@ export function GenericFillView({ survey, token, onDone }: Props) {
         return;
       }
     }
+    if (!token.trim()) {
+      setError('Brak kodu zaproszenia. Otwórz ankietę z unikalnego linku.');
+      return;
+    }
     setBusy(true);
     const payload: SurveyResponse = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      tokenUsed: token || 'PREVIEW',
+      tokenUsed: token,
       surveyId: survey.id,
       answers: values,
       selectedFactors: {},

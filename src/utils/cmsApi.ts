@@ -31,8 +31,31 @@ export async function fetchSurvey(id: string): Promise<ManagedSurvey> {
 
 export async function fetchSurveyBySlug(slug: string): Promise<ManagedSurvey> {
   const res = await fetch(apiUrl(`api/surveys/by-slug/${encodeURIComponent(slug)}`));
-  if (!res.ok) throw new Error('Nie ma takiej ankiety albo nie jest opublikowana.');
-  return res.json();
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || 'Nie ma takiej ankiety albo nie jest opublikowana.');
+  return data as ManagedSurvey;
+}
+
+export async function validateFillToken(
+  surveyId: string,
+  code: string,
+): Promise<{ valid: boolean; used: boolean; label?: string; error?: string; preview?: boolean }> {
+  const res = await fetch(apiUrl('api/tokens/validate'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ surveyId, code }),
+  });
+  const data = await readJson(res);
+  if (!res.ok && !data.error) {
+    return { valid: false, used: false, error: 'Nie udało się sprawdzić kodu zaproszenia.' };
+  }
+  return {
+    valid: Boolean(data.valid),
+    used: Boolean(data.used),
+    label: data.label,
+    error: data.error,
+    preview: Boolean(data.preview),
+  };
 }
 
 export async function createSurveyApi(payload: Partial<ManagedSurvey> & { title: string }): Promise<ManagedSurvey> {

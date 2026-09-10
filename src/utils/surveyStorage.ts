@@ -2,7 +2,7 @@ import { SurveyQuestion, SurveyResponse, VoterToken, DimensionStats, DimensionKe
 import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
 import { apiUrl } from './apiClient';
 import { fillUrl } from './routerBase';
-import { authHeaders } from './authSession';
+import { authHeaders, getSessionToken } from './authSession';
 
 const STORAGE_KEYS = {
   TOKENS: 'kubara_eval_tokens_v6',
@@ -61,7 +61,7 @@ export function initializeDefaultResponses(): SurveyResponse[] {
 export async function fetchTokensFromServer(surveyId?: string): Promise<VoterToken[]> {
   try {
     const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : '';
-    const res = await fetch(apiUrl(`api/tokens${qs}`));
+    const res = await fetch(apiUrl(`api/tokens${qs}`), { headers: authHeaders(false) });
     if (res.ok) {
       const data: VoterToken[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -78,7 +78,7 @@ export async function fetchTokensFromServer(surveyId?: string): Promise<VoterTok
 export async function fetchResponsesFromServer(surveyId?: string): Promise<SurveyResponse[]> {
   try {
     const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : '';
-    const res = await fetch(apiUrl(`api/responses${qs}`));
+    const res = await fetch(apiUrl(`api/responses${qs}`), { headers: authHeaders(false) });
     if (res.ok) {
       const data: SurveyResponse[] = await res.json();
       if (Array.isArray(data)) {
@@ -99,7 +99,7 @@ export async function saveResponseAsync(response: SurveyResponse): Promise<{ suc
   try {
     const res = await fetch(apiUrl('api/responses'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(response),
     });
 
@@ -108,9 +108,10 @@ export async function saveResponseAsync(response: SurveyResponse): Promise<{ suc
       return { success: false, error: data.error || 'Błąd zapisu odpowiedzi na serwerze.' };
     }
 
-    // Refresh server tokens & responses in cache
-    await fetchTokensFromServer();
-    await fetchResponsesFromServer();
+    if (getSessionToken()) {
+      await fetchTokensFromServer(response.surveyId);
+      await fetchResponsesFromServer(response.surveyId);
+    }
 
     return { success: true };
   } catch (err: any) {
@@ -431,15 +432,9 @@ export function getSurveyUrl(tokenCode: string, slug = 'ewaluacja-pracownika'): 
 
 export function validateTokenCode(code: string, currentTokens?: VoterToken[]): { valid: boolean; used: boolean; label?: string; error?: string; token?: VoterToken } {
   const cleanCode = code.trim().toUpperCase();
-  if (cleanCode === 'PODGLAD' || cleanCode === 'PREVIEW' || cleanCode === 'DEMO') {
-    return { valid: true, used: false, label: 'Tryb Podglądu (Test)' };
-  }
   const tokens = currentTokens && currentTokens.length > 0 ? currentTokens : getStoredTokens();
   const found = tokens.find(t => t.code.trim().toUpperCase() === cleanCode);
   if (!found) {
-    if (cleanCode.startsWith('KUB-')) {
-      return { valid: true, used: false, label: `Współpracownik (${cleanCode})` };
-    }
     return { valid: false, used: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź czy wpisałeś poprawny kod z wiadomości.' };
   }
   if (found.used) {

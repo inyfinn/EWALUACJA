@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { routerBasename } from './utils/routerBase';
-import { RequireAuth } from './pages/RequireAuth';
+import { isOrganizerAuthed, RequireAuth } from './pages/RequireAuth';
 import { CmsLayout } from './pages/CmsLayout';
 import { SurveyListPage } from './pages/SurveyListPage';
 import { NewSurveyPage } from './pages/NewSurveyPage';
@@ -12,11 +12,15 @@ import { FillPage } from './pages/FillPage';
 import { TrashPage } from './pages/TrashPage';
 import { LoginPage } from './pages/LoginPage';
 
+function GateToLogin() {
+  return <Navigate to={isOrganizerAuthed() ? '/cms' : '/cms/login'} replace />;
+}
+
 export function App() {
   return (
     <BrowserRouter basename={routerBasename()}>
       <Routes>
-        <Route path="/" element={<Navigate to="/cms" replace />} />
+        <Route path="/" element={<GateToLogin />} />
         <Route path="/cms/login" element={<LoginPage />} />
         <Route element={<RequireAuth />}>
           <Route path="/cms" element={<CmsLayout />}>
@@ -32,7 +36,7 @@ export function App() {
           </Route>
         </Route>
         <Route path="/s/:slug" element={<FillPage />} />
-        <Route path="*" element={<Navigate to="/cms" replace />} />
+        <Route path="*" element={<GateToLogin />} />
       </Routes>
     </BrowserRouter>
   );

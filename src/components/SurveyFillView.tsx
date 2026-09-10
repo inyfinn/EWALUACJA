@@ -8,12 +8,9 @@ import { SurveyQuestion, ScoreLevelDescription, SurveyResponse } from '../types'
 import { SCORE_LEVEL_DESCRIPTIONS } from '../data/surveyQuestions';
 import { 
   saveResponseAsync, 
-  getStoredTokens, 
-  validateTokenCode, 
   getStoredResponses,
-  fetchTokensFromServer,
-  fetchResponsesFromServer
 } from '../utils/surveyStorage';
+import { validateFillToken } from '../utils/cmsApi';
 import { SurveyCompletionSummary } from './SurveyCompletionSummary';
 import confetti from 'canvas-confetti';
 
@@ -24,9 +21,6 @@ interface SurveyFillViewProps {
   heading?: string;
   intro?: string;
   onCompleted: () => void;
-  onSwitchToAdmin?: () => void;
-  onOpenAdminLogin?: () => void;
-  isPreviewMode?: boolean;
 }
 
 
@@ -175,12 +169,8 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   heading,
   intro,
   onCompleted,
-  onSwitchToAdmin,
-  onOpenAdminLogin,
-  isPreviewMode = false,
 }) => {
   const [tokenInput, setTokenInput] = useState(prefilledToken);
-  const [tokenLabel, setTokenLabel] = useState<string | undefined>(undefined);
   const [isTokenVerified, setIsTokenVerified] = useState(false);
   const [isTokenAlreadyUsed, setIsTokenAlreadyUsed] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
@@ -195,9 +185,9 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   const [teamRelation, setTeamRelation] = useState<'ten_sam_zespol' | 'inny_dzial' | 'projektowo'>('ten_sam_zespol');
   
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showTokenInputForm, setShowTokenInputForm] = useState(false);
   const [priorResponsesSnapshot, setPriorResponsesSnapshot] = useState<SurveyResponse[]>([]);
   const [submittedResponse, setSubmittedResponse] = useState<SurveyResponse | null>(null);
+  const [checkingToken, setCheckingToken] = useState(true);
 
   // Pre-load prior responses snapshot so it's ready
   useEffect(() => {
@@ -213,32 +203,31 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     let isMounted = true;
 
     async function initTokenAndPrior() {
-      // 1. Fetch latest tokens and prior responses from server
-      const [serverTokens, serverResponses] = await Promise.all([
-        fetchTokensFromServer(),
-        fetchResponsesFromServer()
-      ]);
-
-      if (!isMounted) return;
-      setPriorResponsesSnapshot(serverResponses);
-
-      if (prefilledToken) {
-        const validation = validateTokenCode(prefilledToken, serverTokens);
-        if (validation.valid && !validation.used) {
-          setTokenInput(prefilledToken);
-          setTokenLabel(validation.label);
-          setIsTokenVerified(true);
-          setIsTokenAlreadyUsed(false);
-          setTokenError(null);
-        } else if (validation.used) {
-          setIsTokenAlreadyUsed(true);
+      if (!prefilledToken || !surveyId) {
+        if (isMounted) {
           setIsTokenVerified(false);
-          setTokenError(validation.error || 'Ten link został już wykorzystany do oddania głosu.');
-        } else {
-          setTokenError(validation.error || 'Nieprawidłowy kod.');
+          setCheckingToken(false);
+          setTokenError('Otwórz ankietę z unikalnego linku zaproszenia.');
         }
-      } else {
+        return;
+      }
+
+      const validation = await validateFillToken(surveyId, prefilledToken);
+      if (!isMounted) return;
+      setCheckingToken(false);
+
+      if (validation.valid && !validation.used) {
+        setTokenInput(prefilledToken);
         setIsTokenVerified(true);
+        setIsTokenAlreadyUsed(false);
+        setTokenError(null);
+      } else if (validation.used) {
+        setIsTokenAlreadyUsed(true);
+        setIsTokenVerified(false);
+        setTokenError(validation.error || 'Ten link został już wykorzystany do oddania głosu.');
+      } else {
+        setIsTokenVerified(false);
+        setTokenError(validation.error || 'Nieprawidłowy kod zaproszenia.');
       }
     }
 
@@ -247,9 +236,10 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [prefilledToken]);
+  }, [prefilledToken, surveyId]);
 
   const handleStartSurvey = () => {
+    if (!isTokenVerified) return;
     setSurveyStage('answering');
     setCurrentStepIndex(0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -271,18 +261,15 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   };
 
   const handleSubmit = async () => {
-    // Capture snapshot of prior responses before saving this one
-    try {
-      const prior = await fetchResponsesFromServer();
-      setPriorResponsesSnapshot(prior);
-    } catch {
-      // ignore
-    }
-
     const urlQueryToken = typeof window !== 'undefined' 
       ? (new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('kod') || '')
       : '';
-    const actualTokenUsed = (tokenInput || prefilledToken || urlQueryToken || 'PREVIEW').trim().toUpperCase();
+    const actualTokenUsed = (tokenInput || prefilledToken || urlQueryToken).trim().toUpperCase();
+    if (!actualTokenUsed || !isTokenVerified) {
+      setSubmitError('Brak ważnego kodu zaproszenia.');
+      setSurveyStage('submitted');
+      return;
+    }
 
     const newResponse: SurveyResponse = {
       id: crypto.randomUUID(),
@@ -332,13 +319,21 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
             {intro || 'Witaj w bezpiecznym panelu oceny. Twoje odpowiedzi pomogą nam lepiej rozwijać zespół. Ankieta jest w 100% anonimowa.'}
           </p>
 
-          <button
-            onClick={handleStartSurvey}
-            className="w-full sm:w-auto px-8 py-4 bg-dk-green hover:bg-dk-green-hover text-white font-semibold rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-sm"
-          >
-            <span>Rozpocznij Ankietę</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          {checkingToken && (
+            <p className="text-sm text-slate-500">Sprawdzam zaproszenie…</p>
+          )}
+          {!checkingToken && (tokenError || isTokenAlreadyUsed) && (
+            <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">{tokenError}</div>
+          )}
+          {!checkingToken && isTokenVerified && (
+            <button
+              onClick={handleStartSurvey}
+              className="w-full sm:w-auto px-8 py-4 bg-dk-green hover:bg-dk-green-hover text-white font-semibold rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-sm"
+            >
+              <span>Rozpocznij Ankietę</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -348,7 +343,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     const urlQueryToken = typeof window !== 'undefined' 
       ? (new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('kod') || '')
       : '';
-    const resolvedToken = (tokenInput || prefilledToken || urlQueryToken || 'PREVIEW').trim().toUpperCase();
+    const resolvedToken = (tokenInput || prefilledToken || urlQueryToken).trim().toUpperCase();
 
     return (
       <SurveyCompletionSummary
@@ -358,7 +353,6 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
         tokenUsed={resolvedToken}
         savedResponse={submittedResponse || undefined}
         saveWarning={submitError || undefined}
-        onOpenAdminLogin={onOpenAdminLogin || onSwitchToAdmin}
       />
     );
   }
