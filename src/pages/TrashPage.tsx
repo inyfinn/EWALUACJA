@@ -24,6 +24,9 @@ export function TrashPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Kosz</h2>
+        <p className="text-sm text-slate-600 mt-1">
+          Usunięte ankiety i odpowiedzi lądują tutaj. Przywrócenie wyniku pamięta, z której ankiety pochodził.
+        </p>
       </div>
       {notice && (
         <div className="text-sm bg-amber-50 border border-amber-200 text-amber-950 rounded-2xl px-4 py-3 font-medium">{notice}</div>

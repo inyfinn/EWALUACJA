@@ -38,9 +38,19 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="bg-dk-violet-soft text-dk-ink rounded-3xl p-5">
+        <h3 className="font-semibold text-base">Jak to działa: bez przecinków i surowych pól</h3>
+        <ol className="mt-3 space-y-2 text-sm text-dk-ink/80 list-decimal list-inside leading-relaxed">
+          <li>Poniżej widzisz ankietę <strong>tak, jak zobaczy ją respondent</strong>.</li>
+          <li>Kliknij w tytuł pytania i po prostu go przepisz.</li>
+          <li>Opcje wyboru to osobne przyciski — nie wpisujesz ich w jednym polu. Kliknij „Dodaj opcję”, a zbędną skasuj krzyżykiem.</li>
+          <li>Nowe pytanie dodajesz przyciskiem na dole. Od razu pojawia się w podglądzie.</li>
+        </ol>
+      </div>
+
       {fields.length === 0 && (
         <div className="border-2 border-dashed border-slate-300 rounded-3xl p-8 text-center text-sm text-slate-500">
-          Brak dodatkowych pytań.
+          Ta ankieta nie ma jeszcze pytań. Dodaj pierwsze poniżej — od razu zobaczysz, jak będzie wyglądać.
         </div>
       )}
 
@@ -129,9 +139,9 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
                   </HintTooltip>
                 </div>
               ))}
-              <HintTooltip text="Dodaje kolejną opcję.">
+              <HintTooltip text="Dopisuje kolejną pozycję na liście do wyboru. Każda osobno, nie przecinkami.">
                 <button type="button" onClick={() => addOption(field)} className="text-xs font-bold text-indigo-700 cursor-pointer">
-                  + Dodaj opcję
+                  + Dodaj opcję (osobny przycisk, nie przecinek)
                 </button>
               </HintTooltip>
             </div>
@@ -140,7 +150,7 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
       ))}
 
       <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-4">
-        <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Dodaj pytanie</p>
+        <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Dodaj pytanie — od razu widać je powyżej</p>
         <div className="flex flex-wrap gap-2">
           {FIELD_TYPES.map((t) => (
             <span key={t.id} className="inline-flex">

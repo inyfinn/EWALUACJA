@@ -29,6 +29,7 @@ export function CmsLayout() {
                   </span>
                 )}
               </div>
+              <p className="text-[11px] text-dk-violet-text/70 hidden md:block">Tworzenie ankiet, pola, linki i wyniki</p>
             </div>
           </Link>
           <div className="flex items-center gap-2 shrink-0">

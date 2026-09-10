@@ -55,6 +55,9 @@ export function SurveyListPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-dk-ink">Ankiety</h2>
+          <p className="text-sm text-dk-ink/70 mt-1">
+            Twórz formularze, edytuj na żywo, publikuj linki i zbieraj wyniki na Synology.
+          </p>
         </div>
         <HintTooltip text="Otwiera kreator nowej ankiety: nazwa, szablon i zapis.">
           <Link to="/cms/new" className="btn-dk-primary text-sm py-2.5 sm:hidden">
@@ -73,11 +76,11 @@ export function SurveyListPage() {
             key={survey.id}
             role="link"
             tabIndex={0}
-            onClick={() => navigate(`/cms/surveys/${survey.id}/edit`)}
+            onClick={() => navigate(`/cms/surveys/${survey.id}/links`)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                navigate(`/cms/surveys/${survey.id}/edit`);
+                navigate(`/cms/surveys/${survey.id}/links`);
               }
             }}
             className="bg-white rounded-3xl border border-dk-violet-soft p-5 sm:p-6 cursor-pointer hover:border-dk-violet/40 hover:shadow-sm transition-shadow"
@@ -135,7 +138,7 @@ export function SurveyListPage() {
         ))}
         {surveys.length === 0 && (
           <div className="bg-white rounded-3xl border border-dashed border-dk-violet-soft p-10 text-center text-dk-ink/50 text-sm">
-            Nie ma jeszcze ankiet.
+            Nie ma jeszcze ankiet. Kliknij „Nowa ankieta” i wybierz szablon.
           </div>
         )}
       </div>

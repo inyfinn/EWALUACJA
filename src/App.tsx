@@ -28,7 +28,7 @@ export function App() {
             <Route path="new" element={<NewSurveyPage />} />
             <Route path="trash" element={<TrashPage />} />
             <Route path="surveys/:surveyId" element={<SurveyWorkspace />}>
-              <Route index element={<Navigate to="edit" replace />} />
+              <Route index element={<Navigate to="links" replace />} />
               <Route path="edit" element={<SurveyEditPage />} />
               <Route path="links" element={<SurveyLinksPage />} />
               <Route path="results" element={<SurveyResultsPage />} />

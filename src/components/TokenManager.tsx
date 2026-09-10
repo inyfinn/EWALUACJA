@@ -3,15 +3,20 @@ import {
   KeyRound, 
   Copy, 
   Check, 
+  Send, 
+  ShieldCheck, 
+  Users, 
   Plus, 
   Trash2, 
   ExternalLink, 
   MessageSquare, 
   AlertCircle, 
+  AlertTriangle,
   Clock, 
   CheckCircle2,
   Globe,
   Settings2,
+  HelpCircle,
   Sparkles,
   Link as LinkIcon,
   PlayCircle,
@@ -204,11 +209,36 @@ Dziękuję za Twój czas i pomoc!`;
       {/* Bento Grid: Overview & Real-time Live Tracking */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Main Bento Info Tile - Col 8 */}
-        <div className="lg:col-span-8 bg-white text-dk-ink rounded-3xl p-6 sm:p-7 shadow-xs ring-1 ring-dk-violet-soft flex flex-col justify-center">
+        <div className="lg:col-span-8 bg-white text-dk-ink rounded-3xl p-6 sm:p-7 shadow-xs ring-1 ring-dk-violet-soft flex flex-col justify-between">
           <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5" /> Bezpieczne linki i automatyczny status
+              </span>
+              <span className="text-xs text-dk-ink/50">Kubara Sp. z o.o.</span>
+            </div>
             <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-dk-ink">
-              Unikalne linki
+              Unikalne linki z ankietą dla współpracowników
             </h2>
+            <p className="text-sm text-dk-ink/70 mt-2 leading-relaxed max-w-[65ch]">
+              Każdy współpracownik otrzymuje swój <strong>indywidualny link</strong>.
+              Gdy wejdzie w link i wyśle odpowiedzi, aplikacja <strong>oznacza ten link jako wypełniony</strong> i dolicza wyniki do raportu, bez konta Google i bez haseł.
+            </p>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-dk-violet-soft grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-dk-ink/75">
+            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
+              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
+              <span>Wejście bezpośrednio z linku</span>
+            </div>
+            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
+              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
+              <span>Zero kont Google i haseł</span>
+            </div>
+            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
+              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
+              <span>100% anonimowość</span>
+            </div>
           </div>
         </div>
 
@@ -311,12 +341,14 @@ Dziękuję za Twój czas i pomoc!`;
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-mono">
-                https://inyfinn.synology.me/panel-ankiet
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Adres publiczny na Synology: <code className="text-[11px] bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-indigo-700">https://inyfinn.synology.me/panel-ankiet</code>.
+                <strong> Nie wymaga konta ani logowania Google.</strong> Wypełnienia zapisują się w bazie na NAS.
               </p>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-emerald-800 font-medium">
-              Publiczny adres
+            <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Dostępny publicznie dla każdego bez konieczności logowania.</span>
             </div>
           </button>
           </HintTooltip>
@@ -364,7 +396,7 @@ Dziękuję za Twój czas i pomoc!`;
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <LinkIcon className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Własny adres URL</span>
+                <span>Wpisz własny adres URL (np. po wdrożeniu na własnym serwerze lub Cloud Run):</span>
               </label>
             </div>
 
@@ -468,7 +500,11 @@ Dziękuję za Twój czas i pomoc!`;
               <Upload className="w-4 h-4 text-emerald-700" />
               <h3 className="font-semibold text-dk-ink text-base">Dodaj wynik z pliku</h3>
             </div>
-            <p className="text-xs text-slate-600">Plik JSON lub ZIP z wynikiem.</p>
+            <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+              Gdy ktoś wypełni ankietę offline albo pobierze kopię na końcu (JSON, ZIP, PDF z danymi importu),
+              wgraj ten plik tutaj — wynik trafi do tej samej bazy na Synology i do raportu.
+              JPG/PNG to tylko podgląd; do importu potrzebny jest <strong>.kw360.json</strong> albo <strong>ZIP</strong> z pakietu.
+            </p>
           </div>
           <HintTooltip text="Wgrywa wynik z pliku JSON albo ZIP do tej ankiety na serwerze.">
             <label className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-xs sm:text-sm font-bold cursor-pointer shadow-2xs ${isImporting ? 'bg-slate-400' : 'bg-emerald-700 hover:bg-emerald-800'}`}>
@@ -503,7 +539,10 @@ Dziękuję za Twój czas i pomoc!`;
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
         <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-dk-ink text-base">Linki</h3>
+            <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania współpracownikom</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Kliknij „Kopiuj Zaproszenie” i wklej współpracownikowi (na Teams, Slack, mailu lub SMS).
+            </p>
           </div>
           <span className="text-xs font-bold text-slate-400">Łącznie: {tokens.length}</span>
         </div>
@@ -512,6 +551,7 @@ Dziękuję za Twój czas i pomoc!`;
           <div className="p-8 text-center text-slate-400">
             <KeyRound className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm font-semibold text-slate-600">Brak wygenerowanych linków.</p>
+            <p className="text-xs text-slate-400 mt-1">Kliknij powyżej przycisk „+3 linki” lub wpisz nazwę współpracownika.</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
