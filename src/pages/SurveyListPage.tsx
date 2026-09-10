@@ -59,7 +59,7 @@ export function SurveyListPage() {
             Twórz formularze, edytuj na żywo, publikuj linki i zbieraj wyniki na Synology.
           </p>
         </div>
-        <Link to="/cms/new" className="btn-dk-primary text-sm py-2.5">
+        <Link to="/cms/new" className="btn-dk-primary text-sm py-2.5 sm:hidden">
           <Plus className="w-4 h-4" /> Nowa ankieta
         </Link>
       </div>

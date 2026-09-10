@@ -290,21 +290,21 @@ Dziękuję za Twój czas i pomoc!`;
             <button
               type="button"
               onClick={() => setShowUrlSettings(!showUrlSettings)}
-              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="btn-dk-ghost whitespace-nowrap"
             >
-              <Settings2 className="w-3.5 h-3.5 text-indigo-600" />
-              <span>{showUrlSettings ? 'Ukryj edycję' : 'Wpisz własny URL'}</span>
+              <Settings2 className="w-3.5 h-3.5 text-dk-violet" />
+              <span>{showUrlSettings ? 'Ukryj edycję' : 'Własny URL'}</span>
             </button>
             {tokens.length > 0 && (
               <a
                 href={getSurveyUrl(tokens[0].code, surveySlug)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-dk-primary"
+                className="btn-dk-primary whitespace-nowrap"
                 title="Otwórz przykładowy link w nowej karcie"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Testuj link w nowej karcie</span>
+                <span>Testuj link</span>
               </a>
             )}
           </div>
