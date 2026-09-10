@@ -38,7 +38,7 @@ export function LiveSurveyEditor({ fields, onChange }: Props) {
   return (
     <div className="space-y-4">
       <div className="bg-dk-violet-soft text-dk-ink rounded-3xl p-5">
-        <h3 className="font-black text-base">Jak to działa — bez przecinków i surowych pól</h3>
+        <h3 className="font-semibold text-base">Jak to działa: bez przecinków i surowych pól</h3>
         <ol className="mt-3 space-y-2 text-sm text-dk-ink/80 list-decimal list-inside leading-relaxed">
           <li>Poniżej widzisz ankietę <strong>tak, jak zobaczy ją respondent</strong>.</li>
           <li>Kliknij w tytuł pytania i po prostu go przepisz.</li>

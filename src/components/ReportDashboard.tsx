@@ -126,14 +126,14 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              <BarChart3 className="w-3.5 h-3.5" /> Raport zbiorczy — ewaluacja pracownika
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-dk-violet-soft text-dk-violet-text border border-dk-violet-soft">
+              <BarChart3 className="w-3.5 h-3.5" /> Raport zbiorczy, ewaluacja pracownika
             </span>
             <span className="text-xs font-semibold text-slate-400">•</span>
             <span className="text-xs font-medium text-slate-500">Kubara Sp. z o.o.</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Ewaluacja pracownika: Krzysztof Wieczorek – Wyniki roczne
+          <h2 className="text-xl sm:text-2xl font-semibold text-dk-ink tracking-tight">
+            Ewaluacja pracownika: Krzysztof Wieczorek. Wyniki roczne
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             {stats.totalResponses > 0 ? (
@@ -148,9 +148,9 @@ export const ReportDashboard: React.FC<ReportDashboardProps> = ({
           <button
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf || stats.totalResponses === 0}
-            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-98 ${
+            className={`px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               stats.totalResponses > 0
-                ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                ? 'bg-dk-green hover:bg-dk-green-hover text-white shadow-sm'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'
             }`}
           >

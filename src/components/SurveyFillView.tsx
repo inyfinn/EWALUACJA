@@ -321,11 +321,11 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       <div className="max-w-3xl mx-auto py-6 sm:py-10 px-4 space-y-6">
         <div className="bg-white rounded-3xl p-6 sm:p-9 shadow-xs border border-slate-200/80">
           <div className="flex items-center gap-3 mb-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-slate-900 text-white">
-              <ShieldCheck className="w-3.5 h-3.5" /> Anonimowa Ankieta
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-dk-green text-white">
+              <ShieldCheck className="w-3.5 h-3.5" /> Anonimowa ankieta
             </span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 tracking-tight">
+          <h1 className="text-2xl sm:text-4xl font-semibold text-dk-ink leading-tight mb-4 tracking-tight">
             {heading || 'Ewaluacja Krzysztofa Wieczorka'}
           </h1>
           <p className="text-slate-600 sm:text-lg mb-8 leading-relaxed max-w-2xl">
@@ -334,7 +334,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
 
           <button
             onClick={handleStartSurvey}
-            className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-md hover:shadow-lg"
+            className="w-full sm:w-auto px-8 py-4 bg-dk-green hover:bg-dk-green-hover text-white font-semibold rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-sm"
           >
             <span>Rozpocznij Ankietę</span>
             <ArrowRight className="w-5 h-5" />
@@ -602,7 +602,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
                 }}
                 className={`h-11 sm:h-12 rounded-2xl flex items-center transition-all duration-300 ease-in-out cursor-pointer overflow-hidden border ${
                   isCurrent
-                    ? 'flex-1 bg-slate-900 border-slate-900 text-white shadow-md px-3 sm:px-4'
+                    ? 'flex-1 bg-dk-green border-dk-green text-white shadow-sm px-3 sm:px-4'
                     : isDone
                     ? 'w-11 sm:w-14 justify-center bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 shrink-0'
                     : 'w-11 sm:w-14 justify-center bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 shrink-0'
@@ -610,7 +610,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
                 title={cleanTitle}
               >
                 <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-                  <span className={`shrink-0 flex items-center justify-center font-black text-[13px] sm:text-sm ${isCurrent ? 'text-amber-400' : ''}`}>
+                  <span className={`shrink-0 flex items-center justify-center font-semibold text-[13px] sm:text-sm ${isCurrent ? 'text-white' : ''}`}>
                     {isDone && !isCurrent ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : (idx + 1)}
                   </span>
                   {isCurrent && (
@@ -800,14 +800,14 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
             type="button"
             onClick={handleNextStep}
             disabled={!isCurrentAnswered}
-            className={`px-6 sm:px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-6 sm:px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               isCurrentAnswered
-                ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md hover:shadow-lg active:scale-98'
+                ? 'bg-dk-green hover:bg-dk-green-hover text-white shadow-sm active:scale-[0.98]'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
             }`}
           >
             <span>{currentStepIndex < questions.length - 1 ? 'Kolejny wymiar' : 'Przejdź do podsumowania'}</span>
-            <ArrowRight className="w-4 h-4 text-amber-400" />
+            <ArrowRight className="w-4 h-4 text-white" />
           </button>
         </div>
       </div>

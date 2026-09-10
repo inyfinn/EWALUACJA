@@ -42,7 +42,7 @@ export function SurveyResultsPage() {
   return (
     <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
       <div className="p-5 border-b border-slate-100">
-        <h3 className="font-extrabold">Wyniki ({responses.filter(r => !r.excludedFromReport).length})</h3>
+        <h3 className="font-semibold">Wyniki ({responses.filter(r => !r.excludedFromReport).length})</h3>
         <p className="text-xs text-slate-500 mt-1">Każdy wiersz to jedno wypełnienie zapisane na NAS.</p>
       </div>
       {responses.length === 0 ? (

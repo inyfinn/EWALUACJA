@@ -20,8 +20,8 @@ export function CmsLayout() {
             <DobraKaloriaMark className="h-11 w-auto max-w-[88px]" />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-extrabold text-sm sm:text-base tracking-tight text-dk-ink">Panel Ankiet</h1>
-                <span className="hidden sm:inline-flex text-[11px] font-bold bg-dk-violet-soft text-dk-violet-text px-2.5 py-0.5 rounded-full">
+                <h1 className="font-semibold text-sm sm:text-base tracking-tight text-dk-ink">Panel Ankiet</h1>
+                <span className="hidden sm:inline-flex text-[11px] font-medium bg-dk-violet-soft text-dk-violet-text px-2.5 py-0.5 rounded-full">
                   CMS
                 </span>
               </div>
@@ -55,7 +55,7 @@ export function CmsLayout() {
 export function CmsHomeHint() {
   return (
     <div className="flex items-center gap-2 text-dk-violet-text text-xs mb-4 bg-dk-violet-soft/60 rounded-full px-3 py-1.5 w-fit">
-      <span>Każdy widok ma własny adres — odświeżenie i Wstecz działają jak na zwykłej stronie.</span>
+      <span>Każdy widok ma własny adres. Odświeżenie i Wstecz działają jak na zwykłej stronie.</span>
     </div>
   );
 }

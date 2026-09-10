@@ -79,7 +79,7 @@ export function SurveyEditPage() {
       <EvalQuestionsEditor questions={questions} onChange={setQuestions} />
 
       <div>
-        <h3 className="font-black text-base mb-3">Dodatkowe pola (poza suwakami)</h3>
+        <h3 className="font-semibold text-base mb-3">Dodatkowe pola (poza suwakami)</h3>
         <p className="text-sm text-dk-ink/70 mb-3">Krótki tekst, wybór, tak/nie — widać je od razu poniżej. Opcje dopisujesz osobno, nie przecinkami.</p>
         <LiveSurveyEditor fields={fields} onChange={setFields} />
       </div>

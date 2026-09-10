@@ -22,7 +22,7 @@ export function TrashPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black tracking-tight">Kosz</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Kosz</h2>
         <p className="text-sm text-slate-600 mt-1">
           Usunięte ankiety i odpowiedzi lądują tutaj. Przywrócenie wyniku pamięta, z której ankiety pochodził.
         </p>
@@ -33,7 +33,7 @@ export function TrashPage() {
       {error && <div className="text-sm text-rose-700">{error}</div>}
 
       <section className="bg-white rounded-3xl border border-slate-200 p-5 space-y-3">
-        <h3 className="font-extrabold">Usunięte ankiety</h3>
+        <h3 className="font-semibold">Usunięte ankiety</h3>
         {trash.surveys.length === 0 && <p className="text-xs text-slate-500">Pusto.</p>}
         {trash.surveys.map((item) => (
           <div key={item.survey.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-slate-100 rounded-2xl p-3">
@@ -70,7 +70,7 @@ export function TrashPage() {
       </section>
 
       <section className="bg-white rounded-3xl border border-slate-200 p-5 space-y-3">
-        <h3 className="font-extrabold">Usunięte odpowiedzi</h3>
+        <h3 className="font-semibold">Usunięte odpowiedzi</h3>
         {trash.responses.length === 0 && <p className="text-xs text-slate-500">Pusto.</p>}
         {trash.responses.map((item) => (
           <div key={item.response.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-slate-100 rounded-2xl p-3">

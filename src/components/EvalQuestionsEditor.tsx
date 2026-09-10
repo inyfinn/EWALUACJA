@@ -145,7 +145,7 @@ export function EvalQuestionsEditor({ questions, onChange }: Props) {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-3xl border border-dk-violet-soft p-5">
-        <h3 className="font-black text-base text-dk-ink">Obszary oceny (suwaki + co wpłynęło)</h3>
+        <h3 className="font-semibold text-base text-dk-ink">Obszary oceny (suwaki + co wpłynęło)</h3>
         <p className="text-sm text-dk-ink/70 mt-2 leading-relaxed">
           To jest treść, którą widzi respondent: pytania, suwak 1–11 oraz opcje
           <strong> pozytywne / neutralne / negatywne</strong> („co wpłynęło na Twoją ocenę”).

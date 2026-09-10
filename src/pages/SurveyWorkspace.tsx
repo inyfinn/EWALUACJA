@@ -35,7 +35,7 @@ export function SurveyWorkspace() {
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `py-2 px-4 text-xs font-bold rounded-full flex items-center gap-2 whitespace-nowrap ${
+        `py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 whitespace-nowrap ${
           isActive ? 'bg-dk-violet-soft text-dk-violet-text' : 'text-dk-ink/70 hover:bg-white'
         }`
       }
@@ -48,8 +48,8 @@ export function SurveyWorkspace() {
   return (
     <div className="space-y-5">
       <div>
-        <Link to="/cms" className="text-xs font-bold text-indigo-700 hover:underline">← Wszystkie ankiety</Link>
-        <h2 className="text-xl sm:text-2xl font-black tracking-tight mt-1">{survey.title}</h2>
+        <Link to="/cms" className="text-xs font-medium text-dk-violet-text hover:underline">← Wszystkie ankiety</Link>
+        <h2 className="text-xl sm:text-2xl font-semibold tracking-tight mt-1">{survey.title}</h2>
         <p className="text-xs text-slate-500 font-mono mt-1 break-all">{fillUrl(survey.slug)}</p>
       </div>
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -58,7 +58,7 @@ export function SurveyWorkspace() {
         {tab('results', 'Wyniki', <BarChart3 className="w-4 h-4" />)}
         <a
           href={fillUrl(survey.slug)}
-          className="py-2 px-4 text-xs font-bold rounded-xl flex items-center gap-2 text-slate-600 hover:bg-slate-100"
+          className="py-2 px-4 text-xs font-medium rounded-full flex items-center gap-2 text-dk-ink/70 hover:bg-white"
         >
           <ExternalLink className="w-4 h-4" /> Podgląd wypełniania
         </a>

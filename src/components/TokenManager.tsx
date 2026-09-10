@@ -208,35 +208,34 @@ Dziękuję za Twój czas i pomoc!`;
       {/* Bento Grid: Overview & Real-time Live Tracking */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Main Bento Info Tile - Col 8 */}
-        <div className="lg:col-span-8 bg-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-xs ring-1 ring-slate-800 flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-white text-dk-ink rounded-3xl p-6 sm:p-7 shadow-xs ring-1 ring-dk-violet-soft flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                <ShieldCheck className="w-3.5 h-3.5" /> Bezpieczne Linki & Automatyczny Status
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5" /> Bezpieczne linki i automatyczny status
               </span>
-              <span className="text-xs text-slate-400">•</span>
-              <span className="text-xs text-slate-300 font-medium">Kubara Sp. z o.o.</span>
+              <span className="text-xs text-dk-ink/50">Kubara Sp. z o.o.</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Unikalne Linki z Ankietą dla Współpracowników
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-dk-ink">
+              Unikalne linki z ankietą dla współpracowników
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-              Każdy współpracownik otrzymuje swój <strong>indywidualny link</strong>. 
-              Gdy współpracownik wejdzie w link i wyśle odpowiedzi, aplikacja <strong>automatycznie oznacza ten link jako wypełniony</strong> i dolicza wyniki do Twojego raportu – bez konieczności logowania się kontem Google czy hasłami.
+            <p className="text-sm text-dk-ink/70 mt-2 leading-relaxed max-w-[65ch]">
+              Każdy współpracownik otrzymuje swój <strong>indywidualny link</strong>.
+              Gdy wejdzie w link i wyśle odpowiedzi, aplikacja <strong>oznacza ten link jako wypełniony</strong> i dolicza wyniki do raportu, bez konta Google i bez haseł.
             </p>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-300">
-            <div className="flex items-center gap-2 bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <div className="mt-5 pt-4 border-t border-dk-violet-soft grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-dk-ink/75">
+            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
+              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
               <span>Wejście bezpośrednio z linku</span>
             </div>
-            <div className="flex items-center gap-2 bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
+              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
               <span>Zero kont Google i haseł</span>
             </div>
-            <div className="flex items-center gap-2 bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <div className="flex items-center gap-2 bg-dk-bg p-3 rounded-2xl border border-dk-violet-soft">
+              <span className="w-1.5 h-1.5 rounded-full bg-dk-green"></span>
               <span>100% anonimowość</span>
             </div>
           </div>
@@ -244,22 +243,22 @@ Dziękuję za Twój czas i pomoc!`;
 
         {/* Stats Bento Tile - Col 4 */}
         <div className="lg:col-span-4 bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Status Zwrotów na Żywo
+          <span className="text-[11px] font-medium text-dk-ink/50 uppercase tracking-wide">
+            Status zwrotów na żywo
           </span>
 
           <div className="grid grid-cols-2 gap-4 my-3">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-150">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900 block tracking-tight">
+            <div className="bg-dk-bg p-4 rounded-2xl border border-dk-violet-soft">
+              <span className="text-2xl sm:text-3xl font-semibold text-dk-ink block tracking-tight">
                 {tokens.length}
               </span>
-              <span className="text-xs text-slate-500 font-medium">wygenerowanych linków</span>
+              <span className="text-xs text-dk-ink/60 font-normal">wygenerowanych linków</span>
             </div>
             <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/70">
-              <span className="text-2xl sm:text-3xl font-black text-emerald-700 block tracking-tight">
+              <span className="text-2xl sm:text-3xl font-semibold text-emerald-700 block tracking-tight">
                 {usedCount}
               </span>
-              <span className="text-xs text-emerald-800 font-medium">ukończonych ankiet</span>
+              <span className="text-xs text-emerald-800 font-normal">ukończonych ankiet</span>
             </div>
           </div>
 
@@ -275,14 +274,14 @@ Dziękuję za Twój czas i pomoc!`;
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200">
+              <span className="text-[11px] font-medium uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-dk-violet-soft text-dk-violet-text border border-dk-violet-soft">
                 Format linku dla współpracowników
               </span>
               <span className="text-xs text-slate-500 font-medium">
                 Aktywny adres bazowy: <strong className="text-slate-800 font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">{baseUrlInfo.url}</strong>
               </span>
             </div>
-            <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+            <h3 className="text-base sm:text-lg font-semibold text-dk-ink">
               Wybierz tryb generowania linków
             </h3>
           </div>
@@ -301,7 +300,7 @@ Dziękuję za Twój czas i pomoc!`;
                 href={getSurveyUrl(tokens[0].code, surveySlug)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="btn-dk-primary"
                 title="Otwórz przykładowy link w nowej karcie"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -332,7 +331,7 @@ Dziękuję za Twój czas i pomoc!`;
                   </span>
                 </div>
                 {baseUrlInfo.mode === 'shared' && (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-600 text-white">
+                  <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-md bg-dk-green text-white">
                     Aktywny
                   </span>
                 )}
@@ -367,7 +366,7 @@ Dziękuję za Twój czas i pomoc!`;
                   </span>
                 </div>
                 {baseUrlInfo.mode === 'dev' && (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-600 text-white">
+                  <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-md bg-dk-green text-white">
                     Aktywny
                   </span>
                 )}
@@ -443,11 +442,11 @@ Dziękuję za Twój czas i pomoc!`;
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
               placeholder="Nazwa współpracownika (np. Dział Logistyki, Jan Kowalski)..."
-              className="flex-1 px-4 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50"
+                className="flex-1 px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
             />
             <button
               type="submit"
-              className="px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+              className="btn-dk-primary shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>Dodaj osobę</span>
@@ -479,7 +478,7 @@ Dziękuję za Twój czas i pomoc!`;
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Upload className="w-4 h-4 text-emerald-700" />
-              <h3 className="font-extrabold text-slate-900 text-base">Dodaj wynik z pliku</h3>
+              <h3 className="font-semibold text-dk-ink text-base">Dodaj wynik z pliku</h3>
             </div>
             <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
               Gdy ktoś wypełni ankietę offline albo pobierze kopię na końcu (JSON, ZIP, PDF z danymi importu),
@@ -518,7 +517,7 @@ Dziękuję za Twój czas i pomoc!`;
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
         <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="font-extrabold text-slate-900 text-base">Linki do wysłania współpracownikom</h3>
+            <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania współpracownikom</h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Kliknij „Kopiuj Zaproszenie” i wklej współpracownikowi (na Teams, Slack, mailu lub SMS).
             </p>
@@ -622,13 +621,13 @@ Dziękuję za Twój czas i pomoc!`;
                     <button
                       type="button"
                       onClick={() => copyInvitationTemplate(token)}
-                      className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="btn-dk-primary"
                       title="Kopiuj gotową, uprzejmą wiadomość z linkiem do wklejenia na Teams/Slack/Mail"
                     >
                       {copiedMessageFor === token.id ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-emerald-300">Skopiowano wiadomość!</span>
+                          <Check className="w-3.5 h-3.5 text-white" />
+                          <span className="text-white">Skopiowano wiadomość!</span>
                         </>
                       ) : (
                         <>

@@ -54,7 +54,7 @@ export function SurveyListPage() {
       <CmsHomeHint />
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-dk-ink">Ankiety</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-dk-ink">Ankiety</h2>
           <p className="text-sm text-dk-ink/70 mt-1">
             Twórz formularze, edytuj na żywo, publikuj linki i zbieraj wyniki na Synology.
           </p>
@@ -86,8 +86,8 @@ export function SurveyListPage() {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h3 className="font-extrabold text-dk-ink text-lg truncate">{survey.title}</h3>
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                  <h3 className="font-semibold text-dk-ink text-lg truncate">{survey.title}</h3>
+                  <span className={`text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full ${
                     survey.archived ? 'bg-amber-100 text-amber-800' :
                     survey.status === 'live' ? 'bg-green-100 text-green-800' :
                     survey.status === 'draft' ? 'bg-dk-violet-soft text-dk-violet-text' : 'bg-slate-100 text-slate-600'

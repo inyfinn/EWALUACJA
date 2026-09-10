@@ -35,17 +35,17 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
+    <div className="min-h-screen bg-dk-bg flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-dk-violet-soft">
         <div className="flex justify-center mb-4">
           <DobraKaloriaMark className="h-16 w-auto max-w-[140px]" />
         </div>
 
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-800 border border-indigo-200 mb-2">
-            <KeyRound className="w-3.5 h-3.5" /> Dostęp Zastrzeżony
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-dk-violet-soft text-dk-violet-text border border-dk-violet-soft mb-2">
+            <KeyRound className="w-3.5 h-3.5" /> Dostęp zastrzeżony
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-semibold text-dk-ink tracking-tight">
             Panel Organizatora
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
@@ -58,7 +58,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wide text-dk-ink/70 mb-1.5">
               Hasło organizatora:
             </label>
             <div className="relative">
@@ -71,7 +71,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
                 }}
                 placeholder="Wpisz hasło (np. kubara)..."
                 autoFocus
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 pr-10"
+                className="w-full bg-dk-bg/60 border border-dk-violet-soft rounded-xl px-3.5 py-2.5 text-sm font-normal text-dk-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-dk-violet/40 pr-10"
               />
               <button
                 type="button"
@@ -98,13 +98,13 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
               className="w-full py-3 btn-dk-primary text-sm"
             >
               <span>Odblokuj Panel Organizatora</span>
-              <ArrowRight className="w-4 h-4 text-amber-400" />
+              <ArrowRight className="w-4 h-4 text-white" />
             </button>
 
             <button
               type="button"
               onClick={onCancel}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              className="w-full py-2.5 bg-white hover:bg-dk-violet-soft text-dk-ink font-medium text-xs rounded-full transition-all cursor-pointer border border-dk-violet-soft"
             >
               Anuluj
             </button>
