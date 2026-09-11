@@ -235,7 +235,7 @@ export function SurveyListPage() {
                   </button>
                 </HintTooltip>
                 <HintTooltip text="Otwiera ankietę w podglądzie. Wynik się nie zapisze.">
-                  <a href={fillUrl(survey.slug, 'PODGLAD')} target="_blank" className="btn-dk-ghost">
+                  <a href={fillUrl(survey.slug, 'PODGLAD')} target="_blank" rel="opener" className="btn-dk-ghost">
                     <ExternalLink className="w-3.5 h-3.5" /> Podgląd
                   </a>
                 </HintTooltip>

@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'kw_session_token';
 const PANEL_KEY = 'kw_panel';
+const FLAG_KEY = 'kw_organizer_authed';
 
 export interface SessionPanel {
   id: string;
@@ -7,30 +8,51 @@ export interface SessionPanel {
   login?: string;
 }
 
+function readKey(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  const fromSession = sessionStorage.getItem(key);
+  const fromLocal = localStorage.getItem(key);
+  const value = fromSession || fromLocal;
+  if (!value) return null;
+  if (!fromSession) sessionStorage.setItem(key, value);
+  if (!fromLocal) localStorage.setItem(key, value);
+  return value;
+}
+
+function writeKey(key: string, value: string) {
+  sessionStorage.setItem(key, value);
+  localStorage.setItem(key, value);
+}
+
+function removeKey(key: string) {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+}
+
 export function getSessionToken(): string | null {
-  return typeof window === 'undefined' ? null : sessionStorage.getItem(TOKEN_KEY);
+  return readKey(TOKEN_KEY);
 }
 
 export function getSessionPanel(): SessionPanel | null {
-  if (typeof window === 'undefined') return null;
+  const raw = readKey(PANEL_KEY);
+  if (!raw) return null;
   try {
-    const raw = sessionStorage.getItem(PANEL_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
 export function setSession(token: string, panel: SessionPanel) {
-  sessionStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.setItem(PANEL_KEY, JSON.stringify(panel));
-  sessionStorage.setItem('kw_organizer_authed', 'true');
+  writeKey(TOKEN_KEY, token);
+  writeKey(PANEL_KEY, JSON.stringify(panel));
+  writeKey(FLAG_KEY, 'true');
 }
 
 export function clearSession() {
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(PANEL_KEY);
-  sessionStorage.removeItem('kw_organizer_authed');
+  removeKey(TOKEN_KEY);
+  removeKey(PANEL_KEY);
+  removeKey(FLAG_KEY);
 }
 
 export function isOrganizerAuthed(): boolean {

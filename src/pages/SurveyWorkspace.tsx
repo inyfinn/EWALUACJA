@@ -122,6 +122,7 @@ export function SurveyWorkspace() {
             <a
               href={fillUrl(survey.slug, 'PODGLAD')}
               target="_blank"
+              rel="opener"
               className={navCardClass(false)}
             >
               <span className={navIconClass(false)}>
