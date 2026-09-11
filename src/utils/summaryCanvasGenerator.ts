@@ -102,10 +102,10 @@ export function generateSummaryCanvas(
 
   // --- HEADER ---
   // Pill badge
-  drawRoundedRect(ctx, contentX, currentY, 190, 26, 6, '#0f172a');
+  drawRoundedRect(ctx, contentX, currentY, 248, 26, 6, '#0f172a');
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-  ctx.fillText('KOPIA EWALUACJI 360', contentX + 16, currentY + 17);
+  ctx.fillText('EWALUACJA PRACOWNIKA', contentX + 16, currentY + 17);
 
   // Company tag right
   ctx.fillStyle = '#64748b';
@@ -339,7 +339,7 @@ export function generateSummaryCanvas(
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = '11px system-ui, -apple-system, sans-serif';
-  ctx.fillText('Kubara Sp. z o.o. • Roczna Ewaluacja Pracownicza 360', contentX, currentY);
+  ctx.fillText('Kubara Sp. z o.o. • Ewaluacja pracownika', contentX, currentY);
 
   ctx.textAlign = 'right';
   ctx.fillText('Dokument wygenerowany automatycznie w systemie', contentX + contentW, currentY);

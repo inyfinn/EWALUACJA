@@ -531,6 +531,7 @@ export function buildOverallEvaluationSummary(
       let rPos = 0;
 
       Object.values(r.answers).forEach(val => {
+        if (typeof val !== 'number') return;
         rSum += val;
         rCount += 1;
         if (val <= 4) rNeg += 1;

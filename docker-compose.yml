@@ -1,0 +1,23 @@
+services:
+  panel-ankiet:
+    build:
+      context: .
+      args:
+        VITE_BASE_PATH: /panel-ankiet/
+    image: panel-ankiet:local
+    container_name: panel-ankiet
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3040"
+      DATA_FILE: /data/survey-store.json
+    ports:
+      - "127.0.0.1:3040:3040"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3040/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

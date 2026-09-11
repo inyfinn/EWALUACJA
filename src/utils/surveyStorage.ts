@@ -1,12 +1,14 @@
 import { SurveyQuestion, SurveyResponse, VoterToken, DimensionStats, DimensionKey, FactorCount } from '../types';
 import { DEFAULT_QUESTIONS } from '../data/surveyQuestions';
+import { apiUrl } from './apiClient';
+import { fillUrl } from './routerBase';
+import { authHeaders, getSessionToken } from './authSession';
 
 const STORAGE_KEYS = {
   TOKENS: 'kubara_eval_tokens_v6',
   RESPONSES: 'kubara_eval_responses_v6',
   CONFIG: 'kubara_eval_config_v6',
   CURRENT_TOKEN: 'kubara_eval_current_token_v6',
-  CUSTOM_BASE_URL: 'kubara_eval_base_url_v6',
 };
 
 // Immediately wipe any old mock/seed data from previous versions in browser
@@ -55,9 +57,10 @@ export function initializeDefaultResponses(): SurveyResponse[] {
 // Server Sync Functions
 // -------------------------------------------------------------------
 
-export async function fetchTokensFromServer(): Promise<VoterToken[]> {
+export async function fetchTokensFromServer(surveyId?: string): Promise<VoterToken[]> {
   try {
-    const res = await fetch('/api/tokens');
+    const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : '';
+    const res = await fetch(apiUrl(`api/tokens${qs}`), { headers: authHeaders(false) });
     if (res.ok) {
       const data: VoterToken[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -71,9 +74,10 @@ export async function fetchTokensFromServer(): Promise<VoterToken[]> {
   return getStoredTokens();
 }
 
-export async function fetchResponsesFromServer(): Promise<SurveyResponse[]> {
+export async function fetchResponsesFromServer(surveyId?: string): Promise<SurveyResponse[]> {
   try {
-    const res = await fetch('/api/responses');
+    const qs = surveyId ? `?surveyId=${encodeURIComponent(surveyId)}` : '';
+    const res = await fetch(apiUrl(`api/responses${qs}`), { headers: authHeaders(false) });
     if (res.ok) {
       const data: SurveyResponse[] = await res.json();
       if (Array.isArray(data)) {
@@ -92,9 +96,9 @@ export async function saveResponseAsync(response: SurveyResponse): Promise<{ suc
   saveResponse(response);
 
   try {
-    const res = await fetch('/api/responses', {
+    const res = await fetch(apiUrl('api/responses'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(response),
     });
 
@@ -103,24 +107,52 @@ export async function saveResponseAsync(response: SurveyResponse): Promise<{ suc
       return { success: false, error: data.error || 'Błąd zapisu odpowiedzi na serwerze.' };
     }
 
-    // Refresh server tokens & responses in cache
-    await fetchTokensFromServer();
-    await fetchResponsesFromServer();
+    if (getSessionToken()) {
+      await fetchTokensFromServer(response.surveyId);
+      await fetchResponsesFromServer(response.surveyId);
+    }
 
     return { success: true };
   } catch (err: any) {
     console.error('Server save error, saved locally:', err);
-    // Even if server request had a network issue, local storage has it
-    return { success: true };
+    return {
+      success: false,
+      error: 'Nie udało się zapisać wyniku na serwerze Synology. Pobierz plik .kw360.json i wgraj go w panelu organizatora (Dodaj wynik z pliku). Kopia zostaje też w tej przeglądarce.',
+    };
   }
 }
 
-export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
+export async function importResponseFromFileAsync(response: SurveyResponse): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/tokens', {
+    const res = await fetch(apiUrl('api/responses/import'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label }),
+      headers: authHeaders(),
+      body: JSON.stringify({
+        format: 'kubara-ewaluacja-360',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        source: 'file-import',
+        response,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Błąd importu na serwerze.' };
+    }
+    await fetchTokensFromServer();
+    await fetchResponsesFromServer();
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Nie udało się połączyć z serwerem podczas importu.' };
+  }
+}
+
+export async function addCustomTokenAsync(label: string, surveyId?: string, test = false): Promise<VoterToken> {
+  try {
+    const res = await fetch(apiUrl('api/tokens'), {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ label, surveyId, test }),
     });
     if (res.ok) {
       const token = await res.json();
@@ -130,12 +162,12 @@ export async function addCustomTokenAsync(label: string): Promise<VoterToken> {
   } catch (e) {
     console.warn('Failed to add token on server, adding locally:', e);
   }
-  return addCustomToken(label);
+  return addCustomToken(label, test);
 }
 
 export async function deleteSingleResponseAsync(responseId: string): Promise<void> {
   try {
-    await fetch(`/api/responses/${responseId}`, { method: 'DELETE' });
+    await fetch(apiUrl(`api/responses/${responseId}`), { method: 'DELETE', headers: authHeaders(false) });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -155,9 +187,9 @@ export async function deleteSingleResponseAsync(responseId: string): Promise<voi
 
 export async function toggleExcludeResponseAsync(responseId: string, excluded?: boolean): Promise<void> {
   try {
-    await fetch(`/api/responses/${responseId}/exclude`, {
+    await fetch(apiUrl(`api/responses/${responseId}/exclude`), {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ excluded }),
     });
     await fetchResponsesFromServer();
@@ -177,7 +209,7 @@ export async function toggleExcludeResponseAsync(responseId: string, excluded?: 
 
 export async function resetTokenAsync(tokenId: string): Promise<void> {
   try {
-    await fetch(`/api/tokens/${tokenId}/reset`, { method: 'POST' });
+    await fetch(apiUrl(`api/tokens/${tokenId}/reset`), { method: 'POST', headers: authHeaders(false) });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -198,7 +230,7 @@ export async function resetTokenAsync(tokenId: string): Promise<void> {
 
 export async function deleteTokenAsync(id: string): Promise<void> {
   try {
-    await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`api/tokens/${id}`), { method: 'DELETE', headers: authHeaders(false) });
     await fetchTokensFromServer();
   } catch (e) {
     console.warn('Failed to delete token on server, deleting locally:', e);
@@ -208,7 +240,7 @@ export async function deleteTokenAsync(id: string): Promise<void> {
 
 export async function clearAllResponsesAsync(): Promise<void> {
   try {
-    await fetch('/api/clear-responses', { method: 'POST' });
+    await fetch(apiUrl('api/clear-responses'), { method: 'POST', headers: authHeaders() });
     await fetchTokensFromServer();
     await fetchResponsesFromServer();
   } catch (e) {
@@ -287,13 +319,14 @@ export function saveResponse(response: SurveyResponse): { success: boolean; erro
   return { success: true };
 }
 
-export function addCustomToken(label: string): VoterToken {
+export function addCustomToken(label: string, test = false): VoterToken {
   const tokens = getStoredTokens();
   const newToken: VoterToken = {
     id: `token_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     code: generateTokenCode(tokens.length),
-    label: label.trim() || `Współpracownik ${tokens.length + 1}`,
+    label: label.trim() || `Ankietowany ${tokens.length + 1}`,
     used: false,
+    test: test || undefined,
   };
   tokens.push(newToken);
   saveTokens(tokens);
@@ -316,102 +349,19 @@ export function clearAllResponses() {
   saveTokens(tokens);
 }
 
-// Base URL resolution for survey links (ensures links do not require Google login)
-export interface SurveyBaseUrlInfo {
-  url: string;
-  mode: 'shared' | 'dev' | 'custom';
-  isAiStudioDev: boolean;
-  defaultDevUrl: string;
-  publicSharedUrl: string;
-  customUrl: string;
-}
-
-export function getSurveyBaseUrlInfo(): SurveyBaseUrlInfo {
-  if (typeof window === 'undefined') {
-    return {
-      url: '',
-      mode: 'dev',
-      isAiStudioDev: false,
-      defaultDevUrl: '',
-      publicSharedUrl: '',
-      customUrl: '',
-    };
-  }
-
-  const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_BASE_URL) || '';
-  const storedMode = (localStorage.getItem('kubara_eval_url_mode_v5') as 'shared' | 'dev' | 'custom') || null;
-  const origin = window.location.origin;
-  const pathname = window.location.pathname;
-  const isAiStudioDev = origin.includes('ais-dev-');
-
-  const defaultDevUrl = `${origin}${pathname}`.replace(/\/+$/, '');
-  const publicSharedUrl = isAiStudioDev 
-    ? `${origin.replace('ais-dev-', 'ais-pre-')}${pathname}`.replace(/\/+$/, '') 
-    : defaultDevUrl;
-
-  // Mode resolution
-  let mode: 'shared' | 'dev' | 'custom' = storedMode || (isAiStudioDev ? 'shared' : 'dev');
-  if (storedMode === 'custom' && !custom.trim()) {
-    mode = isAiStudioDev ? 'shared' : 'dev';
-  }
-
-  let resolvedUrl = defaultDevUrl;
-  if (mode === 'shared') {
-    resolvedUrl = publicSharedUrl;
-  } else if (mode === 'custom' && custom.trim()) {
-    resolvedUrl = custom.trim().replace(/\/+$/, '');
-  } else {
-    resolvedUrl = defaultDevUrl;
-  }
-
-  return {
-    url: resolvedUrl,
-    mode,
-    isAiStudioDev,
-    defaultDevUrl,
-    publicSharedUrl,
-    customUrl: custom,
-  };
-}
-
-export function setSurveyUrlMode(mode: 'shared' | 'dev' | 'custom') {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('kubara_eval_url_mode_v5', mode);
-}
-
-export function setSurveyCustomBaseUrl(url: string | null) {
-  if (typeof window === 'undefined') return;
-  if (!url || !url.trim()) {
-    localStorage.removeItem(STORAGE_KEYS.CUSTOM_BASE_URL);
-  } else {
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_BASE_URL, url.trim().replace(/\/+$/, ''));
-    localStorage.setItem('kubara_eval_url_mode_v5', 'custom');
-  }
-}
-
-// Generate direct URL for a specific token
-export function getSurveyUrl(tokenCode: string): string {
-  const info = getSurveyBaseUrlInfo();
-  const code = tokenCode.trim().toUpperCase();
-  if (!info.url) return `?token=${code}`;
-  return `${info.url}?token=${code}`;
+export function getSurveyUrl(tokenCode: string, slug = 'ewaluacja-pracownika'): string {
+  return fillUrl(slug, tokenCode);
 }
 
 export function validateTokenCode(code: string, currentTokens?: VoterToken[]): { valid: boolean; used: boolean; label?: string; error?: string; token?: VoterToken } {
   const cleanCode = code.trim().toUpperCase();
-  if (cleanCode === 'PODGLAD' || cleanCode === 'PREVIEW' || cleanCode === 'DEMO') {
-    return { valid: true, used: false, label: 'Tryb Podglądu (Test)' };
-  }
   const tokens = currentTokens && currentTokens.length > 0 ? currentTokens : getStoredTokens();
   const found = tokens.find(t => t.code.trim().toUpperCase() === cleanCode);
   if (!found) {
-    if (cleanCode.startsWith('KUB-')) {
-      return { valid: true, used: false, label: `Współpracownik (${cleanCode})` };
-    }
     return { valid: false, used: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź czy wpisałeś poprawny kod z wiadomości.' };
   }
   if (found.used) {
-    return { valid: true, used: true, label: found.label, token: found, error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każdy współpracownik może wypełnić ankietę tylko 1 raz.' };
+    return { valid: true, used: true, label: found.label, token: found, error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każdy ankietowany może wypełnić ankietę tylko 1 raz.' };
   }
   return { valid: true, used: false, label: found.label, token: found };
 }
@@ -433,13 +383,14 @@ export function computeDimensionsAnalytics(
   employeeArchetype: { title: string; description: string; };
   competencyProfile: { relational: number; execution: number; quality: number; initiative: number; };
 } {
-  const dimensionKeys: DimensionKey[] = ['komunikacja', 'terminowosc', 'jakosc', 'wklad_wlasny'];
-  const titles: Record<DimensionKey, string> = {
-    komunikacja: '1. Komunikacja i relacje',
-    terminowosc: '2. Terminowość i niezawodność',
-    jakosc: '3. Jakość pracy i samodzielność',
-    wklad_wlasny: '4. Wkład własny i inicjatywa',
-  };
+  const dimensionKeys: DimensionKey[] = questions.length
+    ? Array.from(new Set(questions.map(q => q.dimension)))
+    : ['komunikacja', 'terminowosc', 'jakosc', 'wklad_wlasny'];
+  const titles: Record<string, string> = {};
+  dimensionKeys.forEach(dim => {
+    const q = questions.find(item => item.dimension === dim);
+    titles[dim] = q?.dimensionTitle || dim;
+  });
 
   const initialStats: Record<DimensionKey, DimensionStats> = {} as any;
 
@@ -476,12 +427,8 @@ export function computeDimensionsAnalytics(
   }
 
   // Count factors across all questions
-  const factorTallies: Record<DimensionKey, Record<string, number>> = {
-    komunikacja: {},
-    terminowosc: {},
-    jakosc: {},
-    wklad_wlasny: {},
-  };
+  const factorTallies: Record<string, Record<string, number>> = {};
+  dimensionKeys.forEach(dim => { factorTallies[dim] = {}; });
 
   const globalDriversTally: Record<string, number> = {};
   const globalImprovementsTally: Record<string, number> = {};
@@ -496,7 +443,7 @@ export function computeDimensionsAnalytics(
       const subScores: number[] = [];
       q.subQuestions.forEach((sq, sqIdx) => {
         if (resp.answers && typeof resp.answers[sq.id] === 'number') {
-          subScores.push(resp.answers[sq.id]);
+          subScores.push(resp.answers[sq.id] as number);
           return;
         }
         if (!resp.answers) return;
@@ -514,7 +461,7 @@ export function computeDimensionsAnalytics(
         ];
         for (const fb of fallbacks) {
           if (typeof resp.answers[fb] === 'number') {
-            subScores.push(resp.answers[fb]);
+            subScores.push(resp.answers[fb] as number);
             return;
           }
         }
@@ -626,10 +573,9 @@ export function computeDimensionsAnalytics(
   const salaryReadiness = Math.min(
     100,
     Math.round(
-      (initialStats.jakosc.average * 3.0 +
-        initialStats.wklad_wlasny.average * 3.0 +
-        initialStats.terminowosc.average * 2.0 +
-        initialStats.komunikacja.average * 2.0) *
+      (dimensionKeys.reduce((sum, key) => sum + (initialStats[key]?.average || 0), 0) /
+        Math.max(dimensionKeys.length, 1)) *
+        10 *
         (activeResponses.length >= 3 ? 1 : 0.7)
     )
   );
@@ -650,10 +596,12 @@ export function computeDimensionsAnalytics(
   
   // Compute Competencies (0-100) based on max possible score of 11.
   // Actually, average is out of 10 or 11. Let's cap at 10 for percentage so 11 is "off the charts"
-  const relational = Math.min(100, Math.round((initialStats.komunikacja.average / 10) * 100));
-  const execution = Math.min(100, Math.round((initialStats.terminowosc.average / 10) * 100));
-  const quality = Math.min(100, Math.round((initialStats.jakosc.average / 10) * 100));
-  const initiative = Math.min(100, Math.round((initialStats.wklad_wlasny.average / 10) * 100));
+  const dimAvg = (key: string) => initialStats[key]?.average || 0;
+  const dimPct = (key: string) => Math.min(100, Math.round((dimAvg(key) / 10) * 100));
+  const relational = dimPct(dimensionKeys.find(k => k === 'komunikacja') || dimensionKeys[0] || '');
+  const execution = dimPct(dimensionKeys.find(k => k === 'terminowosc') || dimensionKeys[1] || dimensionKeys[0] || '');
+  const quality = dimPct(dimensionKeys.find(k => k === 'jakosc') || dimensionKeys[2] || dimensionKeys[0] || '');
+  const initiative = dimPct(dimensionKeys.find(k => k === 'wklad_wlasny') || dimensionKeys[3] || dimensionKeys[0] || '');
 
   const maxVal = Math.max(relational, execution, quality, initiative);
   let archetypeTitle = '';
@@ -702,9 +650,10 @@ export function computeDimensionsAnalytics(
 }
 
 function getHighestDim(stats: Record<DimensionKey, DimensionStats>): DimensionKey {
-  let highest: DimensionKey = 'komunikacja';
+  const keys = Object.keys(stats) as DimensionKey[];
+  let highest: DimensionKey = keys[0] || 'komunikacja';
   let max = -1;
-  (Object.keys(stats) as DimensionKey[]).forEach(k => {
+  keys.forEach(k => {
     if (stats[k].average > max) {
       max = stats[k].average;
       highest = k;
@@ -714,9 +663,10 @@ function getHighestDim(stats: Record<DimensionKey, DimensionStats>): DimensionKe
 }
 
 function getLowestDim(stats: Record<DimensionKey, DimensionStats>): DimensionKey {
-  let lowest: DimensionKey = 'komunikacja';
+  const keys = Object.keys(stats) as DimensionKey[];
+  let lowest: DimensionKey = keys[0] || 'komunikacja';
   let min = 999;
-  (Object.keys(stats) as DimensionKey[]).forEach(k => {
+  keys.forEach(k => {
     if (stats[k].average < min) {
       min = stats[k].average;
       lowest = k;

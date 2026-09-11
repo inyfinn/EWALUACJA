@@ -8,22 +8,19 @@ import { SurveyQuestion, ScoreLevelDescription, SurveyResponse } from '../types'
 import { SCORE_LEVEL_DESCRIPTIONS } from '../data/surveyQuestions';
 import { 
   saveResponseAsync, 
-  getStoredTokens, 
-  validateTokenCode, 
   getStoredResponses,
-  fetchTokensFromServer,
-  fetchResponsesFromServer
 } from '../utils/surveyStorage';
+import { validateFillToken } from '../utils/cmsApi';
 import { SurveyCompletionSummary } from './SurveyCompletionSummary';
 import confetti from 'canvas-confetti';
 
 interface SurveyFillViewProps {
   questions: SurveyQuestion[];
   prefilledToken?: string;
+  surveyId?: string;
+  heading?: string;
+  intro?: string;
   onCompleted: () => void;
-  onSwitchToAdmin?: () => void;
-  onOpenAdminLogin?: () => void;
-  isPreviewMode?: boolean;
 }
 
 
@@ -168,13 +165,12 @@ const GestureSlider = ({ value, onChange, sqId, scoreDescriptions }: { value: nu
 export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   questions,
   prefilledToken = '',
+  surveyId,
+  heading,
+  intro,
   onCompleted,
-  onSwitchToAdmin,
-  onOpenAdminLogin,
-  isPreviewMode = false,
 }) => {
   const [tokenInput, setTokenInput] = useState(prefilledToken);
-  const [tokenLabel, setTokenLabel] = useState<string | undefined>(undefined);
   const [isTokenVerified, setIsTokenVerified] = useState(false);
   const [isTokenAlreadyUsed, setIsTokenAlreadyUsed] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
@@ -189,8 +185,9 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   const [teamRelation, setTeamRelation] = useState<'ten_sam_zespol' | 'inny_dzial' | 'projektowo'>('ten_sam_zespol');
   
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showTokenInputForm, setShowTokenInputForm] = useState(false);
   const [priorResponsesSnapshot, setPriorResponsesSnapshot] = useState<SurveyResponse[]>([]);
+  const [submittedResponse, setSubmittedResponse] = useState<SurveyResponse | null>(null);
+  const [checkingToken, setCheckingToken] = useState(true);
 
   // Pre-load prior responses snapshot so it's ready
   useEffect(() => {
@@ -206,32 +203,31 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     let isMounted = true;
 
     async function initTokenAndPrior() {
-      // 1. Fetch latest tokens and prior responses from server
-      const [serverTokens, serverResponses] = await Promise.all([
-        fetchTokensFromServer(),
-        fetchResponsesFromServer()
-      ]);
-
-      if (!isMounted) return;
-      setPriorResponsesSnapshot(serverResponses);
-
-      if (prefilledToken) {
-        const validation = validateTokenCode(prefilledToken, serverTokens);
-        if (validation.valid && !validation.used) {
-          setTokenInput(prefilledToken);
-          setTokenLabel(validation.label);
-          setIsTokenVerified(true);
-          setIsTokenAlreadyUsed(false);
-          setTokenError(null);
-        } else if (validation.used) {
-          setIsTokenAlreadyUsed(true);
+      if (!prefilledToken || !surveyId) {
+        if (isMounted) {
           setIsTokenVerified(false);
-          setTokenError(validation.error || 'Ten link został już wykorzystany do oddania głosu.');
-        } else {
-          setTokenError(validation.error || 'Nieprawidłowy kod.');
+          setCheckingToken(false);
+          setTokenError('Otwórz ankietę z unikalnego linku zaproszenia.');
         }
-      } else {
+        return;
+      }
+
+      const validation = await validateFillToken(surveyId, prefilledToken);
+      if (!isMounted) return;
+      setCheckingToken(false);
+
+      if (validation.valid && !validation.used) {
+        setTokenInput(prefilledToken);
         setIsTokenVerified(true);
+        setIsTokenAlreadyUsed(false);
+        setTokenError(null);
+      } else if (validation.used) {
+        setIsTokenAlreadyUsed(true);
+        setIsTokenVerified(false);
+        setTokenError(validation.error || 'Ten link został już wykorzystany do oddania głosu.');
+      } else {
+        setIsTokenVerified(false);
+        setTokenError(validation.error || 'Nieprawidłowy kod zaproszenia.');
       }
     }
 
@@ -240,9 +236,10 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [prefilledToken]);
+  }, [prefilledToken, surveyId]);
 
   const handleStartSurvey = () => {
+    if (!isTokenVerified) return;
     setSurveyStage('answering');
     setCurrentStepIndex(0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -264,23 +261,21 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
   };
 
   const handleSubmit = async () => {
-    // Capture snapshot of prior responses before saving this one
-    try {
-      const prior = await fetchResponsesFromServer();
-      setPriorResponsesSnapshot(prior);
-    } catch {
-      // ignore
-    }
-
     const urlQueryToken = typeof window !== 'undefined' 
       ? (new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('kod') || '')
       : '';
-    const actualTokenUsed = (tokenInput || prefilledToken || urlQueryToken || 'PREVIEW').trim().toUpperCase();
+    const actualTokenUsed = (tokenInput || prefilledToken || urlQueryToken).trim().toUpperCase();
+    if (!actualTokenUsed || !isTokenVerified) {
+      setSubmitError('Brak ważnego kodu zaproszenia.');
+      setSurveyStage('submitted');
+      return;
+    }
 
     const newResponse: SurveyResponse = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       tokenUsed: actualTokenUsed,
+      surveyId,
       answers,
       selectedFactors,
       dimensionComments,
@@ -289,6 +284,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     };
 
     const res = await saveResponseAsync(newResponse);
+    setSubmittedResponse(newResponse);
 
     if (res.success) {
       confetti({
@@ -302,6 +298,8 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       onCompleted();
     } else {
       setSubmitError(res.error || 'Wystąpił nieznany błąd zapisu.');
+      setSurveyStage('submitted');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -310,24 +308,32 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
       <div className="max-w-3xl mx-auto py-6 sm:py-10 px-4 space-y-6">
         <div className="bg-white rounded-3xl p-6 sm:p-9 shadow-xs border border-slate-200/80">
           <div className="flex items-center gap-3 mb-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-slate-900 text-white">
-              <ShieldCheck className="w-3.5 h-3.5" /> Anonimowa Ankieta
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-dk-green text-white">
+              <ShieldCheck className="w-3.5 h-3.5" /> Anonimowa ankieta
             </span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 tracking-tight">
-            Ocena współpracy i 360° Feedback
+          <h1 className="text-2xl sm:text-4xl font-semibold text-dk-ink leading-tight mb-4 tracking-tight">
+            {heading || 'Ewaluacja Krzysztofa Wieczorka'}
           </h1>
           <p className="text-slate-600 sm:text-lg mb-8 leading-relaxed max-w-2xl">
-            Witaj w bezpiecznym panelu oceny. Twoje odpowiedzi pomogą nam lepiej rozwijać zespół. Ankieta jest w 100% anonimowa.
+            {intro || 'Witaj w bezpiecznym panelu oceny. Twoje odpowiedzi pomogą nam lepiej rozwijać zespół. Ankieta jest w 100% anonimowa.'}
           </p>
 
-          <button
-            onClick={handleStartSurvey}
-            className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-md hover:shadow-lg"
-          >
-            <span>Rozpocznij Ankietę</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          {checkingToken && (
+            <p className="text-sm text-slate-500">Sprawdzam zaproszenie…</p>
+          )}
+          {!checkingToken && (tokenError || isTokenAlreadyUsed) && (
+            <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">{tokenError}</div>
+          )}
+          {!checkingToken && isTokenVerified && (
+            <button
+              onClick={handleStartSurvey}
+              className="w-full sm:w-auto px-8 py-4 bg-dk-green hover:bg-dk-green-hover text-white font-semibold rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-sm"
+            >
+              <span>Rozpocznij Ankietę</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -337,7 +343,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
     const urlQueryToken = typeof window !== 'undefined' 
       ? (new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('kod') || '')
       : '';
-    const resolvedToken = (tokenInput || prefilledToken || urlQueryToken || 'PREVIEW').trim().toUpperCase();
+    const resolvedToken = (tokenInput || prefilledToken || urlQueryToken).trim().toUpperCase();
 
     return (
       <SurveyCompletionSummary
@@ -345,7 +351,8 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
         selectedFactors={selectedFactors}
         priorResponses={priorResponsesSnapshot}
         tokenUsed={resolvedToken}
-        onOpenAdminLogin={onOpenAdminLogin || onSwitchToAdmin}
+        savedResponse={submittedResponse || undefined}
+        saveWarning={submitError || undefined}
       />
     );
   }
@@ -589,7 +596,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
                 }}
                 className={`h-11 sm:h-12 rounded-2xl flex items-center transition-all duration-300 ease-in-out cursor-pointer overflow-hidden border ${
                   isCurrent
-                    ? 'flex-1 bg-slate-900 border-slate-900 text-white shadow-md px-3 sm:px-4'
+                    ? 'flex-1 bg-dk-green border-dk-green text-white shadow-sm px-3 sm:px-4'
                     : isDone
                     ? 'w-11 sm:w-14 justify-center bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 shrink-0'
                     : 'w-11 sm:w-14 justify-center bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 shrink-0'
@@ -597,7 +604,7 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
                 title={cleanTitle}
               >
                 <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-                  <span className={`shrink-0 flex items-center justify-center font-black text-[13px] sm:text-sm ${isCurrent ? 'text-amber-400' : ''}`}>
+                  <span className={`shrink-0 flex items-center justify-center font-semibold text-[13px] sm:text-sm ${isCurrent ? 'text-white' : ''}`}>
                     {isDone && !isCurrent ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : (idx + 1)}
                   </span>
                   {isCurrent && (
@@ -787,14 +794,14 @@ export const SurveyFillView: React.FC<SurveyFillViewProps> = ({
             type="button"
             onClick={handleNextStep}
             disabled={!isCurrentAnswered}
-            className={`px-6 sm:px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-6 sm:px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               isCurrentAnswered
-                ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md hover:shadow-lg active:scale-98'
+                ? 'bg-dk-green hover:bg-dk-green-hover text-white shadow-sm active:scale-[0.98]'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
             }`}
           >
             <span>{currentStepIndex < questions.length - 1 ? 'Kolejny wymiar' : 'Przejdź do podsumowania'}</span>
-            <ArrowRight className="w-4 h-4 text-amber-400" />
+            <ArrowRight className="w-4 h-4 text-white" />
           </button>
         </div>
       </div>

@@ -463,3 +463,34 @@ export const DEFAULT_CONFIG = {
   targetRoleOrGoal: 'Podsumowanie rocznych osiągnięć, wniesionej wartości, mocnych stron, obszarów do doszlifowania oraz ustalenie dalszych celów rozwojowych',
   questions: DEFAULT_QUESTIONS,
 };
+
+export function cloneQuestions(source: SurveyQuestion[] = DEFAULT_QUESTIONS): SurveyQuestion[] {
+  return JSON.parse(JSON.stringify(source)) as SurveyQuestion[];
+}
+
+export function blankEvalQuestion(): SurveyQuestion {
+  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  return {
+    id: `dim_${stamp}`,
+    dimension: `wymiar_${stamp}`,
+    dimensionTitle: 'Nowy obszar oceny',
+    dimensionSubtitle: 'Krótki opis tego, co oceniamy',
+    contextHelp: 'Na co respondent ma zwrócić uwagę przy tej ocenie.',
+    subQuestions: [
+      {
+        id: `sq_${stamp}_a`,
+        label: 'Ocena',
+        text: 'Jak oceniasz ten obszar?',
+        scoreDescriptions: JSON.parse(JSON.stringify(SCORE_LEVEL_DESCRIPTIONS)) as ScoreLevelDescription[],
+      },
+    ],
+    scoreDescriptions: JSON.parse(JSON.stringify(SCORE_LEVEL_DESCRIPTIONS)) as ScoreLevelDescription[],
+    factors: { high: [], mid: [], low: [] },
+  };
+}
+
+export function resolveSurveyQuestions(survey: { questions?: SurveyQuestion[]; engine?: string }): SurveyQuestion[] {
+  if (survey.questions && survey.questions.length > 0) return survey.questions;
+  if (survey.engine === '360') return cloneQuestions();
+  return [];
+}

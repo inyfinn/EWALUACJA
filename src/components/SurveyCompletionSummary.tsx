@@ -9,7 +9,8 @@ import {
   TrendingUp, 
   TrendingDown, 
   Sparkles, 
-  FileText, 
+  FileText,
+  FileArchive,
   Layers, 
   ShieldCheck,
   Award,
@@ -22,12 +23,22 @@ import jsPDF from 'jspdf';
 import { SurveyResponse } from '../types';
 import { buildOverallEvaluationSummary, OverallEvaluationSummary } from '../utils/evaluationNarratives';
 import { generateSummaryCanvas } from '../utils/summaryCanvasGenerator';
+import {
+  buildTransferPackage,
+  downloadBlob,
+  exportFilename,
+  transferMarkerPayload,
+  transferPackageToJson,
+  zipStoreFiles,
+} from '../utils/surveyTransfer';
 
 interface SurveyCompletionSummaryProps {
   answers: Record<string, number>;
   selectedFactors: Record<string, string[]>;
   priorResponses: SurveyResponse[];
   tokenUsed: string;
+  savedResponse?: SurveyResponse;
+  saveWarning?: string;
   onOpenAdminLogin?: () => void;
 }
 
@@ -45,11 +56,14 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
   selectedFactors,
   priorResponses,
   tokenUsed,
+  savedResponse,
+  saveWarning,
   onOpenAdminLogin,
 }) => {
   const summaryRef = useRef<HTMLDivElement>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingJpg, setIsExportingJpg] = useState(false);
+  const [isExportingPackage, setIsExportingPackage] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [printStatusMessage, setPrintStatusMessage] = useState<string | null>(null);
   const [exportModal, setExportModal] = useState<ExportModalData | null>(null);
@@ -57,6 +71,25 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
   const summary: OverallEvaluationSummary = useMemo(() => {
     return buildOverallEvaluationSummary(answers, selectedFactors, priorResponses);
   }, [answers, selectedFactors, priorResponses]);
+
+  const responseForExport: SurveyResponse = useMemo(() => {
+    if (savedResponse) return savedResponse;
+    return {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `local_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      tokenUsed,
+      answers,
+      selectedFactors,
+      dimensionComments: {},
+      collaborationContext: '',
+      teamRelation: '',
+    };
+  }, [savedResponse, tokenUsed, answers, selectedFactors]);
+
+  const buildJsonBlob = () => {
+    const pkg = buildTransferPackage(responseForExport, 'completion');
+    return new Blob([transferPackageToJson(pkg)], { type: 'application/json' });
+  };
 
   // Helper to trigger mobile share or standard download
   const triggerSaveOrShare = async (blob: Blob, filename: string, mimeType: string) => {
@@ -68,7 +101,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
         await navigator.share({
           files: [file],
           title: filename,
-          text: 'Podsumowanie Ewaluacji 360 – Krzysztof Wieczorek (Kubara Sp. z o.o.)',
+          text: 'Podsumowanie ewaluacji pracownika – Krzysztof Wieczorek (Kubara Sp. z o.o.)',
         });
         return true;
       } catch (err: any) {
@@ -110,8 +143,15 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addPage();
+      pdf.setFontSize(8);
+      pdf.text('Dane do importu w Panelu Ankiet (nie usuwaj tej strony).', 12, 16);
+      pdf.setFontSize(5);
+      const marker = transferMarkerPayload(buildTransferPackage(responseForExport, 'completion'));
+      const lines = pdf.splitTextToSize(marker, 186);
+      pdf.text(lines.slice(0, 80), 12, 24);
       const pdfBlob = pdf.output('blob');
-      const filename = `Ewaluacja_Podsumowanie_Krzysztof_Wieczorek_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const filename = exportFilename('pdf', tokenUsed);
       const blobUrl = URL.createObjectURL(pdfBlob);
 
       // Attempt immediate download/share
@@ -127,7 +167,9 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
         previewDataUrl: imgData,
       });
 
-      setPrintStatusMessage('Plik PDF został wygenerowany.');
+      const jsonBlob = buildJsonBlob();
+      downloadBlob(jsonBlob, exportFilename('kw360.json', tokenUsed));
+      setPrintStatusMessage('Plik PDF i plik importu .kw360.json zostały wygenerowane.');
     } catch (err) {
       console.error('Błąd generowania PDF', err);
       setPrintStatusMessage('Wystąpił błąd podczas tworzenia pliku PDF. Spróbuj pobrać kopię jako JPG.');
@@ -149,7 +191,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
         canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95);
       });
 
-      const filename = `Ewaluacja_Podsumowanie_Krzysztof_Wieczorek_${new Date().toISOString().slice(0, 10)}.jpg`;
+      const filename = exportFilename('jpg', tokenUsed);
       const blobUrl = URL.createObjectURL(blob);
 
       // Attempt immediate download/share
@@ -165,7 +207,9 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
         previewDataUrl: dataUrl,
       });
 
-      setPrintStatusMessage('Obraz JPG został wygenerowany.');
+      const jsonBlob = buildJsonBlob();
+      downloadBlob(jsonBlob, exportFilename('kw360.json', tokenUsed));
+      setPrintStatusMessage('Obraz JPG i plik importu .kw360.json zostały wygenerowane.');
     } catch (err) {
       console.error('Błąd generowania JPG', err);
       setPrintStatusMessage('Wystąpił problem z zapisem obrazu JPG.');
@@ -186,7 +230,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ewaluacja 360: Krzysztof Wieczorek</title>
+  <title>Ewaluacja pracownika: Krzysztof Wieczorek</title>
   <style>
     body { margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #0f172a; text-align: center; }
     .btn { display: inline-block; padding: 12px 24px; background: #0f172a; color: #fff; font-weight: bold; border-radius: 8px; text-decoration: none; margin-bottom: 20px; cursor: pointer; border: none; font-size: 15px; }
@@ -236,10 +280,53 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
     }
   };
 
+  const handleExportJson = async () => {
+    const jsonBlob = buildJsonBlob();
+    const filename = exportFilename('kw360.json', tokenUsed);
+    await triggerSaveOrShare(jsonBlob, filename, 'application/json');
+    setPrintStatusMessage('Zapisano plik JSON do wgrania w panelu (Dodaj wynik z pliku).');
+  };
+
+  const handleExportPackage = async () => {
+    setIsExportingPackage(true);
+    setPrintStatusMessage(null);
+    try {
+      const jsonBlob = buildJsonBlob();
+      const jsonBytes = new Uint8Array(await jsonBlob.arrayBuffer());
+      const canvas = generateSummaryCanvas(summary, tokenUsed);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addPage();
+      pdf.setFontSize(5);
+      pdf.text(pdf.splitTextToSize(transferMarkerPayload(buildTransferPackage(responseForExport, 'completion')), 186).slice(0, 80), 12, 16);
+      const pdfBytes = new Uint8Array(await pdf.output('arraybuffer'));
+      const jpgBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95);
+      });
+      const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer());
+      const zipBlob = zipStoreFiles([
+        { name: exportFilename('kw360.json', tokenUsed), data: jsonBytes },
+        { name: exportFilename('pdf', tokenUsed), data: pdfBytes },
+        { name: exportFilename('jpg', tokenUsed), data: jpgBytes },
+      ]);
+      const zipName = exportFilename('zip', tokenUsed);
+      await triggerSaveOrShare(zipBlob, zipName, 'application/zip');
+      setPrintStatusMessage('Pakiet ZIP (JSON + PDF + JPG) jest gotowy do importu w panelu.');
+    } catch (err) {
+      console.error(err);
+      setPrintStatusMessage('Nie udało się złożyć pakietu ZIP. Pobierz osobno plik JSON.');
+    } finally {
+      setIsExportingPackage(false);
+    }
+  };
+
   // Copy full summary to clipboard and share
   const handleCopySummary = async () => {
     const textLines = [
-      `📋 PODSUMOWANIE EWALUACJI 360: KRZYSZTOF WIECZOREK`,
+      `📋 PODSUMOWANIE EWALUACJI PRACOWNIKA: KRZYSZTOF WIECZOREK`,
       `Firma: Kubara Sp. z o.o. | Data: ${new Date().toLocaleDateString('pl-PL')}`,
       `--------------------------------------------------`,
       `🎯 Wynik łączny: ${summary.userTotalScore} / 132 pkt (Średnia: ${summary.userAverageScore} / 11.0)`,
@@ -267,7 +354,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
       if (navigator.share) {
         try {
           await navigator.share({
-            title: 'Ewaluacja 360 - Podsumowanie',
+            title: 'Ewaluacja pracownika — podsumowanie',
             text: formattedText,
           });
           setCopySuccess(true);
@@ -312,9 +399,31 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
         <p className="text-sm text-slate-600 max-w-xl mx-auto mb-6">
           Twój głos zasili roczny raport podsumowujący współpracę z <strong>Krzysztofem Wieczorkiem</strong> w firmie Kubara Sp. z o.o.
         </p>
+        {saveWarning && (
+          <div className="max-w-xl mx-auto mb-4 text-left text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+            {saveWarning} Pobierz <strong>Pakiet do panelu (ZIP)</strong> albo <strong>JSON</strong> i wgraj go u organizatora.
+          </div>
+        )}
 
         {/* Action Buttons Toolbar */}
         <div className="flex items-center justify-center gap-2.5 flex-wrap pt-4 border-t border-slate-100">
+          <button
+            onClick={handleExportPackage}
+            disabled={isExportingPackage}
+            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-xs hover:shadow cursor-pointer active:scale-98"
+          >
+            <FileArchive className="w-4 h-4" />
+            <span>{isExportingPackage ? 'Pakowanie...' : 'Pakiet do panelu (ZIP)'}</span>
+          </button>
+
+          <button
+            onClick={handleExportJson}
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-emerald-300 text-emerald-900 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer active:scale-98"
+          >
+            <FileText className="w-4 h-4 text-emerald-700" />
+            <span>Plik importu JSON</span>
+          </button>
+
           <button
             onClick={handleExportPdf}
             disabled={isExportingPdf}
@@ -479,7 +588,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white px-2 py-0.5 rounded">
-                Kopia Ewaluacji 360
+                Ewaluacja pracownika
               </span>
               <span className="text-xs text-slate-500 font-medium">Kubara Sp. z o.o.</span>
             </div>
@@ -663,7 +772,7 @@ export const SurveyCompletionSummary: React.FC<SurveyCompletionSummaryProps> = (
 
         {/* Footer info */}
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-          <span>Kubara Sp. z o.o. • Roczna Ewaluacja Pracownicza 360</span>
+          <span>Kubara Sp. z o.o. • Ewaluacja pracownika</span>
           <span>Wygenerowano automatycznie w systemie ankietowym</span>
         </div>
 

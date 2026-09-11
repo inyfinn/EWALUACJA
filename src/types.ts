@@ -1,4 +1,4 @@
-export type DimensionKey = 'komunikacja' | 'terminowosc' | 'jakosc' | 'wklad_wlasny';
+export type DimensionKey = string;
 
 export type ScoreTier = 'high' | 'mid' | 'low'; // high (7-10), mid (4-6), low (1-3)
 
@@ -38,25 +38,89 @@ export interface SurveyQuestion {
   };
 }
 
+export type SurveyFieldType =
+  | 'short_text'
+  | 'long_text'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'scale'
+  | 'yes_no'
+  | 'number';
+
+export interface SurveyField {
+  id: string;
+  type: SurveyFieldType;
+  label: string;
+  help?: string;
+  required: boolean;
+  options?: string[];
+  scaleMin?: number;
+  scaleMax?: number;
+}
+
+export type SurveyEngine = 'generic' | '360';
+export type SurveyStatus = 'draft' | 'live' | 'closed';
+export type SurveySubject = 'person' | 'company' | 'workplace' | 'printshop' | 'self';
+
+export interface ManagedSurvey {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  status: SurveyStatus;
+  engine: SurveyEngine;
+  fields: SurveyField[];
+  questions?: SurveyQuestion[];
+  createdAt: string;
+  updatedAt: string;
+  archived?: boolean;
+  isBuiltinTemplate?: boolean;
+  sourceTemplateId?: string;
+  subject?: SurveySubject;
+  ownerIds?: string[];
+}
+
+export interface TrashSurveyItem {
+  deletedAt: string;
+  survey: ManagedSurvey;
+  tokens: VoterToken[];
+}
+
+export interface TrashResponseItem {
+  deletedAt: string;
+  response: SurveyResponse;
+  surveyId: string;
+  surveyTitle: string;
+  surveySnapshot: ManagedSurvey;
+}
+
+export interface TrashStore {
+  surveys: TrashSurveyItem[];
+  responses: TrashResponseItem[];
+}
+
 export interface SurveyResponse {
   id: string;
   createdAt: string;
   tokenUsed: string;
-  answers: Record<string, number>; // subQuestionId -> score (1-10)
-  selectedFactors: Record<string, string[]>; // questionId -> array of selected factor texts
-  dimensionComments: Record<string, string>; // questionId -> custom comment
+  surveyId?: string;
+  answers: Record<string, number | string | string[]>;
+  selectedFactors: Record<string, string[]>;
+  dimensionComments: Record<string, string>;
   collaborationContext: string;
   teamRelation: string;
-  excludedFromReport?: boolean; // When true, excluded from report (e.g. test)
+  excludedFromReport?: boolean;
 }
 
 export interface VoterToken {
   id: string;
   code: string;
-  label: string; // e.g. "Współpracownik (Dział Logistyki / Produkcji)", "Osoba 2"
+  label: string;
   used: boolean;
   usedAt?: string;
   responseId?: string;
+  surveyId?: string;
+  test?: boolean;
 }
 
 export interface SurveyConfig {

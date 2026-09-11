@@ -1,14 +1,68 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
+import { DEFAULT_QUESTIONS } from './src/data/surveyQuestions.ts';
+import { SURVEY_TEMPLATES } from './src/data/surveyTemplates.ts';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
-app.use(express.json());
+app.set('trust proxy', true);
+app.use(express.json({ limit: '12mb' }));
 
-const DATA_FILE = path.join(process.cwd(), 'data', 'survey-store.json');
+const DATA_FILE = process.env.DATA_FILE || path.join(process.cwd(), 'data', 'survey-store.json');
+
+const DEFAULT_SURVEY_ID = 'survey_ewaluacja_360';
+
+const BUILTIN_PANELS: StoredPanel[] = [
+  { id: 'karolina', name: 'Karolina', password: 'karolina2026#' },
+  { id: 'krzysztof', name: 'Krzysztof', password: 'krzysztof2026#' },
+  { id: 'szymon', name: 'Szymon', password: 'szymon2026#' },
+  { id: 'ewa', name: 'Ewa', password: 'ewa2026#' },
+  { id: 'aneta', name: 'Aneta', password: 'aneta2026#' },
+];
+
+function normPass(value: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+interface StoredPanel {
+  id: string;
+  name: string;
+  password: string;
+  login?: string;
+  createdBy?: string;
+}
+
+interface SurveyField {
+  id: string;
+  type: string;
+  label: string;
+  help?: string;
+  required: boolean;
+  options?: string[];
+  scaleMin?: number;
+  scaleMax?: number;
+}
+
+interface ManagedSurvey {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  status: 'draft' | 'live' | 'closed';
+  engine: 'generic' | '360';
+  fields: SurveyField[];
+  createdAt: string;
+  updatedAt: string;
+  archived?: boolean;
+  sourceTemplateId?: string;
+  subject?: string;
+  questions?: any[];
+  ownerIds?: string[];
+}
 
 interface VoterToken {
   id: string;
@@ -17,13 +71,16 @@ interface VoterToken {
   used: boolean;
   usedAt?: string;
   responseId?: string;
+  surveyId?: string;
+  test?: boolean;
 }
 
 interface SurveyResponse {
   id: string;
   createdAt: string;
   tokenUsed: string;
-  answers: Record<string, number>;
+  surveyId?: string;
+  answers: Record<string, any>;
   selectedFactors: Record<string, string[]>;
   dimensionComments?: Record<string, string>;
   collaborationContext?: string;
@@ -31,25 +88,188 @@ interface SurveyResponse {
   excludedFromReport?: boolean;
 }
 
+interface TrashSurveyItem {
+  deletedAt: string;
+  survey: ManagedSurvey;
+  tokens: VoterToken[];
+}
+
+interface TrashResponseItem {
+  deletedAt: string;
+  response: SurveyResponse;
+  surveyId: string;
+  surveyTitle: string;
+  surveySnapshot: ManagedSurvey;
+}
+
+interface StoredTemplate {
+  id: string;
+  title: string;
+  blurb: string;
+  visibility: 'global' | 'private';
+  ownerId: string;
+  builtin?: boolean;
+  subject?: string;
+  subjectLabel?: string;
+  engine: 'generic' | '360';
+  description: string;
+  fields: SurveyField[];
+  questions?: any[];
+}
+
+interface StoreSession {
+  token: string;
+  panelId: string;
+  createdAt: string;
+}
+
 interface StoreData {
+  surveys: ManagedSurvey[];
   tokens: VoterToken[];
   responses: SurveyResponse[];
+  trash: {
+    surveys: TrashSurveyItem[];
+    responses: TrashResponseItem[];
+  };
+  templates: StoredTemplate[];
+  sessions: StoreSession[];
+  panels: StoredPanel[];
+}
+
+function slugify(input: string): string {
+  const base = input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return base || `ankieta-${Date.now().toString(36)}`;
+}
+
+function uniqueSlug(store: StoreData, desired: string, exceptId?: string): string {
+  let slug = slugify(desired);
+  let n = 2;
+  while (store.surveys.some(s => s.slug === slug && s.id !== exceptId)) {
+    slug = `${slugify(desired)}-${n}`;
+    n += 1;
+  }
+  return slug;
+}
+
+function seedBuiltinTemplates(): StoredTemplate[] {
+  return SURVEY_TEMPLATES.map((t) => ({
+    id: t.id,
+    title: t.title,
+    blurb: t.blurb,
+    visibility: 'global' as const,
+    ownerId: 'system',
+    builtin: true,
+    subject: t.subject,
+    subjectLabel: t.subjectLabel,
+    engine: t.engine,
+    description: t.description,
+    fields: JSON.parse(JSON.stringify(t.fields)),
+    questions: t.questions ? JSON.parse(JSON.stringify(t.questions)) : [],
+  }));
+}
+
+function default360Survey(): ManagedSurvey {
+  const now = new Date().toISOString();
+  return {
+    id: DEFAULT_SURVEY_ID,
+    slug: 'ewaluacja-pracownika',
+    title: 'Ewaluacja Krzysztofa Wieczorka',
+    description: 'Anonimowa ewaluacja Krzysztofa Wieczorka: komunikacja, terminowość, jakość, wkład własny.',
+    status: 'live',
+    engine: '360',
+    fields: [],
+    questions: JSON.parse(JSON.stringify(DEFAULT_QUESTIONS)),
+    createdAt: now,
+    updatedAt: now,
+    ownerIds: ['krzysztof', 'karolina'],
+  };
 }
 
 function getDefaultStore(): StoreData {
+  const survey = default360Survey();
   return {
+    surveys: [survey],
     tokens: [
-      { id: 'token_1_kubara', code: 'KUB-1RNHC', label: 'Współpracownik 1 (Dział Produkcji / Technologii)', used: false },
-      { id: 'token_2_kubara', code: 'KUB-2AB4K', label: 'Współpracownik 2 (Dział Handlowy / B2B)', used: false },
-      { id: 'token_3_kubara', code: 'KUB-3M79X', label: 'Współpracownik 3 (Logistyka / Magazyn)', used: false },
-      { id: 'token_4_kubara', code: 'KUB-4PT2W', label: 'Współpracownik 4 (Dział Jakości i Certyfikacji)', used: false },
-      { id: 'token_5_kubara', code: 'KUB-5H83Q', label: 'Współpracownik 5 (Finanse / Administracja)', used: false },
-      { id: 'token_6_kubara', code: 'KUB-6R91E', label: 'Współpracownik 6 (Projekt międzywydziałowy)', used: false },
-      { id: 'token_7_kubara', code: 'KUB-7Y45Z', label: 'Współpracownik 7 (Współpracownik kluczowy)', used: false },
-      { id: 'token_8_kubara', code: 'KUB-8N23L', label: 'Współpracownik 8 (Dział Obsługi Klienta)', used: false }
+      { id: 'token_1_kubara', code: 'KUB-1RNHC', label: 'Współpracownik 1 (Dział Produkcji / Technologii)', used: false, surveyId: survey.id },
+      { id: 'token_2_kubara', code: 'KUB-2AB4K', label: 'Współpracownik 2 (Dział Handlowy / B2B)', used: false, surveyId: survey.id },
+      { id: 'token_3_kubara', code: 'KUB-3M79X', label: 'Współpracownik 3 (Logistyka / Magazyn)', used: false, surveyId: survey.id },
+      { id: 'token_4_kubara', code: 'KUB-4PT2W', label: 'Współpracownik 4 (Dział Jakości i Certyfikacji)', used: false, surveyId: survey.id },
+      { id: 'token_5_kubara', code: 'KUB-5H83Q', label: 'Współpracownik 5 (Finanse / Administracja)', used: false, surveyId: survey.id },
+      { id: 'token_6_kubara', code: 'KUB-6R91E', label: 'Współpracownik 6 (Projekt międzywydziałowy)', used: false, surveyId: survey.id },
+      { id: 'token_7_kubara', code: 'KUB-7Y45Z', label: 'Współpracownik 7 (Współpracownik kluczowy)', used: false, surveyId: survey.id },
+      { id: 'token_8_kubara', code: 'KUB-8N23L', label: 'Współpracownik 8 (Dział Obsługi Klienta)', used: false, surveyId: survey.id }
     ],
-    responses: []
+    responses: [],
+    trash: { surveys: [], responses: [] },
+    templates: seedBuiltinTemplates(),
+    sessions: [],
+    panels: [],
   };
+}
+
+function migrateStore(parsed: any): StoreData {
+  const store: StoreData = {
+    surveys: Array.isArray(parsed.surveys) ? parsed.surveys : [],
+    tokens: Array.isArray(parsed.tokens) ? parsed.tokens : getDefaultStore().tokens,
+    responses: Array.isArray(parsed.responses) ? parsed.responses : [],
+    trash: {
+      surveys: Array.isArray(parsed.trash?.surveys) ? parsed.trash.surveys : [],
+      responses: Array.isArray(parsed.trash?.responses) ? parsed.trash.responses : [],
+    },
+    templates: Array.isArray(parsed.templates) ? parsed.templates : [],
+    sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+    panels: Array.isArray(parsed.panels)
+      ? parsed.panels.filter((p: any) => p && typeof p.id === 'string' && typeof p.name === 'string' && typeof p.password === 'string')
+      : [],
+  };
+  if (store.surveys.length === 0) {
+    store.surveys = [default360Survey()];
+  }
+  const builtins = seedBuiltinTemplates();
+  builtins.forEach((tpl) => {
+    if (!store.templates.some((t) => t.id === tpl.id && t.builtin)) {
+      store.templates = store.templates.filter((t) => t.id !== tpl.id);
+      store.templates.push(tpl);
+    }
+  });
+  store.surveys.forEach((s) => {
+    const genericName = !s.title
+      || s.title === 'Ewaluacja pracownika'
+      || /360/.test(s.title);
+    if ((s.engine === '360' || s.id === DEFAULT_SURVEY_ID) && genericName) {
+      s.title = 'Ewaluacja Krzysztofa Wieczorka';
+    }
+    if (!s.description || /360/.test(s.description)) {
+      if (s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /360/.test(s.slug || '')) {
+        s.description = 'Anonimowa ewaluacja Krzysztofa Wieczorka: komunikacja, terminowość, jakość, wkład własny.';
+      }
+    }
+    if ((!s.questions || !s.questions.length) && (s.engine === '360' || s.id === DEFAULT_SURVEY_ID)) {
+      s.questions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+    }
+    if (!Array.isArray(s.ownerIds) || s.ownerIds.length === 0) {
+      const isKrzysztofEval = s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /ewaluacja krzysztofa/i.test(s.title || '');
+      s.ownerIds = isKrzysztofEval ? ['krzysztof', 'karolina'] : ['krzysztof'];
+    } else {
+      const isKrzysztofEval = s.engine === '360' || s.id === DEFAULT_SURVEY_ID || /ewaluacja krzysztofa/i.test(s.title || '');
+      if (isKrzysztofEval) {
+        s.ownerIds = Array.from(new Set([...s.ownerIds, 'krzysztof', 'karolina']));
+      }
+    }
+  });
+  store.tokens.forEach(t => {
+    if (!t.surveyId) t.surveyId = DEFAULT_SURVEY_ID;
+  });
+  store.responses.forEach(r => {
+    if (!r.surveyId) r.surveyId = DEFAULT_SURVEY_ID;
+  });
+  return store;
 }
 
 function readStore(): StoreData {
@@ -63,9 +283,9 @@ function readStore(): StoreData {
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (!parsed.tokens || !Array.isArray(parsed.tokens)) parsed.tokens = getDefaultStore().tokens;
-    if (!parsed.responses || !Array.isArray(parsed.responses)) parsed.responses = [];
-    return parsed;
+    const migrated = migrateStore(parsed);
+    writeStore(migrated);
+    return migrated;
   } catch (err) {
     console.error('Failed to read data store:', err);
     return getDefaultStore();
@@ -82,40 +302,685 @@ function writeStore(data: StoreData) {
   }
 }
 
+function builtinPanelIds() {
+  return new Set(BUILTIN_PANELS.map((p) => p.id));
+}
+
+function allPanels(store: StoreData): StoredPanel[] {
+  const builtinIds = builtinPanelIds();
+  const extra = (store.panels || []).filter((p) => p.id && p.name && p.password && !builtinIds.has(p.id));
+  return [...BUILTIN_PANELS, ...extra];
+}
+
+function panelLogin(p: StoredPanel) {
+  return String(p.login || p.id);
+}
+
+function publicPanel(p: StoredPanel) {
+  return { id: p.id, name: p.name, login: panelLogin(p) };
+}
+
+function panelByPassword(store: StoreData, password: string) {
+  const needle = normPass(password);
+  return allPanels(store).find((p) => normPass(p.password) === needle) || null;
+}
+
+function panelNameKey(name: string) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function panelNameTaken(store: StoreData, name: string, exceptId?: string) {
+  const key = panelNameKey(name);
+  if (!key) return false;
+  return allPanels(store).some((p) => p.id !== exceptId && panelNameKey(p.name) === key);
+}
+
+function suggestPanelNames(store: StoreData, name: string): string[] {
+  const base = name.trim().replace(/\s+/g, ' ');
+  if (base.length < 2) return [];
+  const out: string[] = [];
+  const tryAdd = (candidate: string) => {
+    if (candidate.length < 2) return;
+    if (panelNameTaken(store, candidate)) return;
+    if (out.some((x) => panelNameKey(x) === panelNameKey(candidate))) return;
+    out.push(candidate);
+  };
+  for (let n = 2; n <= 12 && out.length < 6; n += 1) tryAdd(`${base} ${n}`);
+  tryAdd(`${base} Bis`);
+  tryAdd(`Nowy ${base}`);
+  tryAdd(`${base} B`);
+  const slug = slugify(base);
+  if (slug && slug !== panelNameKey(base)) tryAdd(slug);
+  for (let n = 2; n <= 8 && out.length < 6; n += 1) tryAdd(`${slug}-${n}`);
+  return out.slice(0, 6);
+}
+
+function uniquePanelId(store: StoreData, name: string): string {
+  const base = slugify(name) || `osoba-${Date.now().toString(36)}`;
+  const taken = new Set(allPanels(store).map((p) => p.id));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+function generatePanelPassword(existing: StoredPanel[]): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  for (let attempt = 0; attempt < 30; attempt++) {
+    let rand = '';
+    for (let i = 0; i < 8; i++) {
+      rand += chars.charAt(crypto.randomInt(chars.length));
+    }
+    const password = `${rand}#`;
+    if (!existing.some((p) => normPass(p.password) === normPass(password))) return password;
+  }
+  return `${crypto.randomBytes(6).toString('hex')}#`;
+}
+
+function publicPanels(store: StoreData) {
+  return allPanels(store).map(publicPanel);
+}
+
+function panelFromRequest(req: express.Request, store: StoreData) {
+  const header = String(req.headers.authorization || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return null;
+  const session = store.sessions.find((s) => s.token === token);
+  if (!session) return null;
+  return allPanels(store).find((p) => p.id === session.panelId) || null;
+}
+
+function requirePanel(req: express.Request, res: express.Response) {
+  const store = readStore();
+  const panel = panelFromRequest(req, store);
+  if (!panel) {
+    res.status(401).json({ error: 'Sesja wygasła. Wejdź ponownie hasłem.' });
+    return null;
+  }
+  return { store, panel };
+}
+
+function canAccessSurvey(survey: ManagedSurvey, panelId: string) {
+  return (survey.ownerIds || []).includes(panelId);
+}
+
+function ownedSurveys(store: StoreData, panelId: string) {
+  return store.surveys.filter((s) => canAccessSurvey(s, panelId));
+}
+
+app.post('/api/auth/login', (req, res) => {
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const store = readStore();
+  const panel = panelByPassword(store, password);
+  if (!panel) {
+    return res.status(401).json({ error: 'Nieprawidłowe hasło.' });
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  store.sessions.push({ token, panelId: panel.id, createdAt: new Date().toISOString() });
+  const mine = store.sessions.filter((s) => s.panelId === panel.id)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (mine.length > 10) {
+    const drop = new Set(mine.slice(0, mine.length - 10).map((s) => s.token));
+    store.sessions = store.sessions.filter((s) => !drop.has(s.token));
+  }
+  writeStore(store);
+  res.json({ token, panel: publicPanel(panel) });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  res.json({ panel: publicPanel(ctx.panel) });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const store = readStore();
+  const header = String(req.headers.authorization || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  store.sessions = store.sessions.filter((s) => s.token !== token);
+  writeStore(store);
+  res.json({ success: true });
+});
+
 // -------------------------------------------------------------
 // API Endpoints
 // -------------------------------------------------------------
 
-app.get('/api/health', (req, res) => {
-  const store = readStore();
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.get('/api/panels/managed', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const managed = (store.panels || []).filter((p) => p.createdBy === panel.id && !builtinPanelIds().has(p.id));
+  res.json(managed.map((p) => ({ id: p.id, name: p.name, password: p.password })));
+});
+
+app.get('/api/panels', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  res.json(publicPanels(ctx.store));
+});
+
+app.post('/api/panels', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (name.length < 2) {
+    return res.status(400).json({ error: 'Wpisz imię nowej osoby (minimum 2 znaki).' });
+  }
+  const surveyId = typeof req.body?.surveyId === 'string' ? req.body.surveyId : '';
+  let survey: ManagedSurvey | undefined;
+  if (surveyId) {
+    survey = store.surveys.find((s) => s.id === surveyId);
+    if (!survey || !canAccessSurvey(survey, panel.id)) {
+      return res.status(404).json({ error: 'Nie ma takiej ankiety, żeby dodać do niej tę osobę.' });
+    }
+  }
+  if (panelNameTaken(store, name)) {
+    return res.status(409).json({
+      error: `Osoba „${name}” już jest. Wybierz inną nazwę.`,
+      suggestions: suggestPanelNames(store, name),
+    });
+  }
+  const id = uniquePanelId(store, name);
+  const password = generatePanelPassword(allPanels(store));
+  const created: StoredPanel = { id, name, password, login: id, createdBy: panel.id };
+  store.panels = [...(store.panels || []), created];
+  if (survey) {
+    const owners = [...(survey.ownerIds || [])];
+    if (!owners.includes(id)) owners.push(id);
+    survey.ownerIds = owners;
+    survey.updatedAt = new Date().toISOString();
+  }
+  writeStore(store);
   res.json({
-    status: 'ok',
-    tokensCount: store.tokens.length,
-    responsesCount: store.responses.length,
+    id,
+    name,
+    login: id,
+    password,
+    surveyId: survey?.id,
   });
 });
 
-app.get('/api/tokens', (req, res) => {
+app.post('/api/panels/:id/password', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const targetId = String(req.params.id || '');
+  if (builtinPanelIds().has(targetId)) {
+    return res.status(403).json({ error: 'Tego konta nie da się tu zresetować.' });
+  }
+  const target = (store.panels || []).find((p) => p.id === targetId);
+  if (!target || target.createdBy !== panel.id) {
+    return res.status(404).json({ error: 'Nie ma takiej osoby na Twojej liście.' });
+  }
+  const custom = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
+  let password = '';
+  if (custom) {
+    if (custom.length < 6) {
+      return res.status(400).json({ error: 'Hasło musi mieć minimum 6 znaków.' });
+    }
+    const clash = allPanels(store).some((p) => p.id !== target.id && normPass(p.password) === normPass(custom));
+    if (clash) {
+      return res.status(400).json({ error: 'To hasło jest już używane. Wpisz inne albo wygeneruj nowe.' });
+    }
+    password = custom;
+  } else {
+    password = generatePanelPassword(allPanels(store));
+  }
+  target.password = password;
+  store.sessions = store.sessions.filter((s) => s.panelId !== target.id);
+  writeStore(store);
+  res.json({ id: target.id, name: target.name, password });
+});
+
+app.delete('/api/panels/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const targetId = String(req.params.id || '');
+  if (builtinPanelIds().has(targetId) || targetId === panel.id) {
+    return res.status(403).json({ error: 'Tego konta nie da się usunąć.' });
+  }
+  const target = (store.panels || []).find((p) => p.id === targetId);
+  if (!target || target.createdBy !== panel.id) {
+    return res.status(404).json({ error: 'Nie ma takiej osoby na Twojej liście.' });
+  }
+  store.panels = (store.panels || []).filter((p) => p.id !== targetId);
+  store.sessions = store.sessions.filter((s) => s.panelId !== targetId);
+  for (const survey of store.surveys) {
+    const owners = survey.ownerIds || [];
+    if (!owners.includes(targetId)) continue;
+    const next = owners.filter((id) => id !== targetId);
+    survey.ownerIds = next.length > 0 ? next : [panel.id];
+    survey.updatedAt = new Date().toISOString();
+  }
+  writeStore(store);
+  res.json({ success: true });
+});
+
+function isPreviewCode(code: string) {
+  return code === 'PODGLAD' || code === 'PREVIEW' || code === 'DEMO';
+}
+
+function publicSurveyView(survey: ManagedSurvey) {
+  return {
+    id: survey.id,
+    slug: survey.slug,
+    title: survey.title,
+    description: survey.description,
+    status: survey.status,
+    engine: survey.engine,
+    fields: survey.fields,
+    questions: survey.questions,
+    archived: survey.archived,
+    subject: survey.subject,
+  };
+}
+
+function restoreSurveyRecord(store: StoreData, survey: ManagedSurvey, tokens: VoterToken[] = [], asArchived = false) {
+  const existing = store.surveys.find(s => s.id === survey.id);
+  if (existing) {
+    if (asArchived) {
+      existing.archived = true;
+      existing.status = 'closed';
+    }
+    return existing;
+  }
+  const restored = JSON.parse(JSON.stringify(survey)) as ManagedSurvey;
+  restored.slug = uniqueSlug(store, restored.slug || restored.title, restored.id);
+  if (asArchived) {
+    restored.archived = true;
+    restored.status = 'closed';
+  }
+  store.surveys.push(restored);
+  tokens.forEach((token) => {
+    if (!store.tokens.some(t => t.id === token.id)) store.tokens.push(token);
+  });
+  return restored;
+}
+
+app.get('/api/trash', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  res.json({
+    surveys: store.trash.surveys.filter((item) => canAccessSurvey(item.survey, panel.id)),
+    responses: store.trash.responses.filter((item) => canAccessSurvey(item.surveySnapshot, panel.id)),
+  });
+});
+
+app.post('/api/trash/surveys/:id/restore', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const idx = store.trash.surveys.findIndex(item => item.survey.id === req.params.id && canAccessSurvey(item.survey, panel.id));
+  if (idx < 0) return res.status(404).json({ error: 'Nie ma tej ankiety w koszu.' });
+  const item = store.trash.surveys[idx];
+  restoreSurveyRecord(store, item.survey, item.tokens, false);
+  const related = store.trash.responses.filter(r => r.surveyId === item.survey.id);
+  related.forEach((tr) => {
+    if (!store.responses.some(r => r.id === tr.response.id)) {
+      store.responses.push(tr.response);
+    }
+  });
+  store.trash.surveys.splice(idx, 1);
+  store.trash.responses = store.trash.responses.filter(r => r.surveyId !== item.survey.id);
+  writeStore(store);
+  res.json({ success: true, survey: item.survey });
+});
+
+app.post('/api/trash/responses/:id/restore', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const idx = store.trash.responses.findIndex(item => item.response.id === req.params.id && canAccessSurvey(item.surveySnapshot, panel.id));
+  if (idx < 0) return res.status(404).json({ error: 'Nie ma tej odpowiedzi w koszu.' });
+  const item = store.trash.responses[idx];
+  const live = store.surveys.find(s => s.id === item.surveyId);
+  const bundled = store.trash.surveys.find(t => t.survey.id === item.surveyId);
+
+  let restoredSurveyTemporarily = false;
+  let survey = live;
+  if (!survey && bundled) {
+    survey = restoreSurveyRecord(store, bundled.survey, bundled.tokens, true);
+    store.trash.surveys = store.trash.surveys.filter(t => t.survey.id !== bundled.survey.id);
+    restoredSurveyTemporarily = true;
+  } else if (!survey) {
+    survey = restoreSurveyRecord(store, item.surveySnapshot, [], true);
+    restoredSurveyTemporarily = true;
+  }
+
+  if (!store.responses.some(r => r.id === item.response.id)) {
+    store.responses.push({ ...item.response, surveyId: survey.id });
+  }
+  store.trash.responses.splice(idx, 1);
+  writeStore(store);
+  res.json({
+    success: true,
+    restoredSurveyTemporarily,
+    archived: Boolean(survey.archived),
+    surveyTitle: survey.title,
+    message: restoredSurveyTemporarily
+      ? `Ta odpowiedź należała do usuniętej ankiety „${survey.title}”. Przywracam tymczasowo całą ankietę i oznaczam ją jako zarchiwizowaną, żeby dało się odzyskać wynik.`
+      : 'Przywrócono odpowiedź do ankiety.',
+  });
+});
+
+app.delete('/api/trash/surveys/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  store.trash.surveys = store.trash.surveys.filter(item => !(item.survey.id === req.params.id && canAccessSurvey(item.survey, panel.id)));
+  store.trash.responses = store.trash.responses.filter(item => item.surveyId !== req.params.id);
+  writeStore(store);
+  res.json({ success: true });
+});
+
+app.delete('/api/trash/responses/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  store.trash.responses = store.trash.responses.filter(item => !(item.response.id === req.params.id && canAccessSurvey(item.surveySnapshot, panel.id)));
+  writeStore(store);
+  res.json({ success: true });
+});
+
+app.get('/api/surveys', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  res.json(ownedSurveys(ctx.store, ctx.panel.id));
+});
+
+app.get('/api/surveys/by-slug/:slug', (req, res) => {
   const store = readStore();
-  res.json(store.tokens);
+  const slug = String(req.params.slug || '').replace(/\/+$/g, '');
+  const aliases: Record<string, string> = {
+    'ewaluacja-pracownika': 'ewaluacja-360',
+    'ewaluacja-360': 'ewaluacja-pracownika',
+  };
+  const survey = store.surveys.find(s => s.slug === slug)
+    || (aliases[slug] ? store.surveys.find(s => s.slug === aliases[slug]) : undefined);
+  if (!survey || survey.archived || survey.status === 'draft') {
+    return res.status(404).json({ error: 'Nie ma takiej ankiety albo nie jest opublikowana.' });
+  }
+  if (survey.status === 'closed') {
+    return res.status(409).json({ error: 'Ta ankieta jest wstrzymana i nie przyjmuje odpowiedzi.' });
+  }
+  res.json(publicSurveyView(survey));
+});
+
+app.get('/api/surveys/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const survey = ctx.store.surveys.find(s => s.id === req.params.id);
+  if (!survey || !canAccessSurvey(survey, ctx.panel.id)) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  res.json(survey);
+});
+
+app.post('/api/surveys', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const body = req.body || {};
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  if (title.length < 2) {
+    return res.status(400).json({ error: 'Najpierw wpisz nazwę ankiety (minimum 2 znaki). Bez nazwy nie da się iść dalej.' });
+  }
+  const now = new Date().toISOString();
+  const survey: ManagedSurvey = {
+    id: `survey_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    slug: uniqueSlug(store, body.slug || title),
+    title,
+    description: typeof body.description === 'string' ? body.description : '',
+    status: body.status === 'draft' || body.status === 'closed' ? body.status : 'live',
+    engine: body.engine === '360' ? '360' : 'generic',
+    fields: Array.isArray(body.fields) ? body.fields : [],
+    createdAt: now,
+    updatedAt: now,
+    archived: Boolean(body.archived),
+    sourceTemplateId: typeof body.sourceTemplateId === 'string' ? body.sourceTemplateId : undefined,
+    subject: typeof body.subject === 'string' ? body.subject : undefined,
+    questions: Array.isArray(body.questions) ? body.questions : [],
+    ownerIds: [panel.id],
+  };
+  store.surveys.push(survey);
+  writeStore(store);
+  res.json(survey);
+});
+
+app.post('/api/surveys/:id/duplicate', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const source = store.surveys.find(s => s.id === req.params.id);
+  if (!source || !canAccessSurvey(source, panel.id)) return res.status(404).json({ error: 'Nie ma takiej ankiety do skopiowania.' });
+  const requestedTitle = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  const title = requestedTitle || `${source.title} (kopia)`;
+  const now = new Date().toISOString();
+  const copy: ManagedSurvey = {
+    ...JSON.parse(JSON.stringify(source)),
+    id: `survey_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    slug: uniqueSlug(store, title),
+    title,
+    status: 'draft',
+    archived: false,
+    createdAt: now,
+    updatedAt: now,
+    ownerIds: [panel.id],
+  };
+  store.surveys.push(copy);
+  writeStore(store);
+  res.json(copy);
+});
+
+app.put('/api/surveys/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const survey = store.surveys.find(s => s.id === req.params.id);
+  if (!survey || !canAccessSurvey(survey, panel.id)) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+  const body = req.body || {};
+  if (typeof body.title === 'string') {
+    if (!body.title.trim()) {
+      return res.status(400).json({ error: 'Ankieta musi mieć nazwę. Wpisz tytuł, zanim zapiszesz.' });
+    }
+    survey.title = body.title.trim();
+  }
+  if (typeof body.description === 'string') survey.description = body.description;
+  if (body.status === 'draft' || body.status === 'live' || body.status === 'closed') survey.status = body.status;
+  if (typeof body.archived === 'boolean') survey.archived = body.archived;
+  if (body.engine === '360' || body.engine === 'generic') survey.engine = body.engine;
+  if (Array.isArray(body.fields)) survey.fields = body.fields;
+  if (Array.isArray(body.questions)) survey.questions = body.questions;
+  if (typeof body.slug === 'string' && body.slug.trim()) {
+    survey.slug = uniqueSlug(store, body.slug, survey.id);
+  }
+  if (Array.isArray(body.ownerIds)) {
+    const allowed = new Set<string>(allPanels(store).map((p) => p.id));
+    const ids: string[] = [];
+    for (const raw of body.ownerIds) {
+      if (typeof raw === 'string' && allowed.has(raw) && !ids.includes(raw)) ids.push(raw);
+    }
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'Ankieta musi mieć przynajmniej jedną osobę z dostępem do panelu.' });
+    }
+    survey.ownerIds = ids;
+  }
+  survey.updatedAt = new Date().toISOString();
+  writeStore(store);
+  res.json(survey);
+});
+
+app.delete('/api/surveys/:id', (req, res) => {
+  const { id } = req.params;
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const survey = store.surveys.find(s => s.id === id);
+  if (!survey || !canAccessSurvey(survey, panel.id)) return res.status(404).json({ error: 'Ankieta nie istnieje.' });
+
+  const relatedResponses = store.responses.filter(r => r.surveyId === id);
+  const relatedTokens = store.tokens.filter(t => t.surveyId === id);
+  const deletedAt = new Date().toISOString();
+
+  store.trash.surveys.unshift({
+    deletedAt,
+    survey: JSON.parse(JSON.stringify(survey)),
+    tokens: JSON.parse(JSON.stringify(relatedTokens)),
+  });
+  relatedResponses.forEach((response) => {
+    store.trash.responses.unshift({
+      deletedAt,
+      response: JSON.parse(JSON.stringify(response)),
+      surveyId: id,
+      surveyTitle: survey.title,
+      surveySnapshot: JSON.parse(JSON.stringify(survey)),
+    });
+  });
+
+  store.surveys = store.surveys.filter(s => s.id !== id);
+  store.tokens = store.tokens.filter(t => t.surveyId !== id);
+  store.responses = store.responses.filter(r => r.surveyId !== id);
+  writeStore(store);
+  res.json({ success: true, trashed: true });
+});
+
+app.get('/api/templates', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const list = store.templates.filter((t) => t.visibility === 'global' || t.ownerId === panel.id);
+  res.json(list);
+});
+
+app.post('/api/templates', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const visibility = req.body?.visibility === 'private' ? 'private' : 'global';
+  const surveyId = typeof req.body?.surveyId === 'string' ? req.body.surveyId : '';
+  const survey = store.surveys.find((s) => s.id === surveyId);
+  if (!survey || !canAccessSurvey(survey, panel.id)) {
+    return res.status(400).json({ error: 'Najpierw zapisz ankietę, potem zrób z niej szablon.' });
+  }
+  const title = (typeof req.body?.title === 'string' && req.body.title.trim()) || survey.title;
+  const tpl: StoredTemplate = {
+    id: `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    title,
+    blurb: survey.description || title,
+    visibility,
+    ownerId: panel.id,
+    builtin: false,
+    subject: survey.subject,
+    subjectLabel: visibility === 'global' ? 'Globalny' : 'Prywatny',
+    engine: survey.engine,
+    description: survey.description || '',
+    fields: JSON.parse(JSON.stringify(survey.fields || [])),
+    questions: JSON.parse(JSON.stringify(survey.questions || [])),
+  };
+  store.templates.push(tpl);
+  writeStore(store);
+  res.json(tpl);
+});
+
+app.post('/api/tokens/validate', (req, res) => {
+  const store = readStore();
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+  const surveyId = typeof req.body?.surveyId === 'string' ? req.body.surveyId.trim() : '';
+  if (!code || !surveyId) {
+    return res.status(400).json({ valid: false, used: false, error: 'Brak kodu zaproszenia.' });
+  }
+
+  if (isPreviewCode(code)) {
+    const panel = panelFromRequest(req, store);
+    if (!panel) {
+      return res.status(401).json({
+        valid: false,
+        used: false,
+        error: 'Podgląd ankiety jest dostępny tylko po wejściu hasłem do panelu.',
+      });
+    }
+    const survey = store.surveys.find((s) => s.id === surveyId);
+    if (!survey || !canAccessSurvey(survey, panel.id)) {
+      return res.status(404).json({ valid: false, used: false, error: 'Nie ma takiej ankiety.' });
+    }
+    return res.json({ valid: true, used: false, preview: true, label: 'Tryb podglądu' });
+  }
+
+  const survey = store.surveys.find((s) => s.id === surveyId);
+  if (!survey || survey.archived || survey.status !== 'live') {
+    return res.status(404).json({
+      valid: false,
+      used: false,
+      error: 'Ta ankieta nie przyjmuje teraz odpowiedzi.',
+    });
+  }
+
+  const token = store.tokens.find(
+    (t) => t.code.trim().toUpperCase() === code && t.surveyId === surveyId,
+  );
+  if (!token) {
+    return res.json({ valid: false, used: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź unikalny link.' });
+  }
+  if (token.used) {
+    return res.json({
+      valid: true,
+      used: true,
+      error: 'Ten unikalny link został już wcześniej wykorzystany do oddania głosu. Każda osoba może wypełnić ankietę tylko 1 raz.',
+    });
+  }
+  return res.json({ valid: true, used: false, label: token.label });
+});
+
+app.get('/api/tokens', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
+  if (surveyId) {
+    const parent = store.surveys.find((s) => s.id === surveyId);
+    if (!parent || !canAccessSurvey(parent, panel.id)) {
+      return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+    }
+    return res.json(store.tokens.filter((t) => t.surveyId === surveyId));
+  }
+  const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
+  res.json(store.tokens.filter((t) => t.surveyId && ids.has(t.surveyId)));
 });
 
 app.post('/api/tokens', (req, res) => {
-  const { label } = req.body || {};
-  const store = readStore();
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const { label, surveyId, test } = req.body || {};
+  const resolvedSurveyId = typeof surveyId === 'string' && surveyId
+    ? surveyId
+    : (ownedSurveys(store, panel.id)[0]?.id || '');
+  const parent = store.surveys.find((s) => s.id === resolvedSurveyId);
+  if (!parent || !canAccessSurvey(parent, panel.id)) {
+    return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+  }
 
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let rand = '';
   for (let i = 0; i < 4; i++) {
     rand += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  const code = `KUB-${store.tokens.length + 1}${rand}`;
+  const scopedCount = store.tokens.filter(t => t.surveyId === resolvedSurveyId).length;
+  const code = `KUB-${scopedCount + 1}${rand}`;
 
   const newToken: VoterToken = {
     id: `token_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     code,
-    label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Współpracownik ${store.tokens.length + 1}`,
+    label: (label && typeof label === 'string' && label.trim()) ? label.trim() : `Ankietowany ${scopedCount + 1}`,
     used: false,
+    surveyId: resolvedSurveyId,
+    test: Boolean(test),
   };
 
   store.tokens.push(newToken);
@@ -124,10 +989,16 @@ app.post('/api/tokens', (req, res) => {
 });
 
 app.delete('/api/tokens/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { id } = req.params;
-  const store = readStore();
   const token = store.tokens.find(t => t.id === id);
   if (token) {
+    const parent = store.surveys.find((s) => s.id === token.surveyId);
+    if (parent && !canAccessSurvey(parent, panel.id)) {
+      return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
+    }
     // Also remove associated response if any
     store.responses = store.responses.filter(r => r.id !== token.responseId && r.tokenUsed !== token.code);
   }
@@ -137,10 +1008,16 @@ app.delete('/api/tokens/:id', (req, res) => {
 });
 
 app.post('/api/tokens/:id/reset', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { id } = req.params;
-  const store = readStore();
   const token = store.tokens.find(t => t.id === id);
   if (!token) {
+    return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
+  }
+  const parent = store.surveys.find((s) => s.id === token.surveyId);
+  if (parent && !canAccessSurvey(parent, panel.id)) {
     return res.status(404).json({ success: false, error: 'Token nie znaleziony.' });
   }
 
@@ -160,21 +1037,54 @@ app.post('/api/tokens/:id/reset', (req, res) => {
 });
 
 app.get('/api/responses', (req, res) => {
-  const store = readStore();
-  res.json(store.responses);
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const surveyId = typeof req.query.surveyId === 'string' ? req.query.surveyId : '';
+  const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
+  if (surveyId) {
+    if (!ids.has(surveyId)) return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+    return res.json(store.responses.filter((r) => r.surveyId === surveyId));
+  }
+  res.json(store.responses.filter((r) => r.surveyId && ids.has(r.surveyId)));
 });
 
 app.delete('/api/responses/:id', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
   const { id } = req.params;
-  const store = readStore();
   const resp = store.responses.find(r => r.id === id);
-  
-  // Remove response
+  if (!resp) return res.status(404).json({ success: false, error: 'Odpowiedź nie istnieje.' });
+  const liveParent = store.surveys.find(s => s.id === resp.surveyId);
+  if (liveParent && !canAccessSurvey(liveParent, panel.id)) {
+    return res.status(404).json({ success: false, error: 'Odpowiedź nie istnieje.' });
+  }
+
+  const parent = store.surveys.find(s => s.id === resp.surveyId)
+    || store.trash.surveys.find(t => t.survey.id === resp.surveyId)?.survey;
+  store.trash.responses.unshift({
+    deletedAt: new Date().toISOString(),
+    response: JSON.parse(JSON.stringify(resp)),
+    surveyId: resp.surveyId || DEFAULT_SURVEY_ID,
+    surveyTitle: parent?.title || 'Nieznana ankieta',
+    surveySnapshot: parent ? JSON.parse(JSON.stringify(parent)) : JSON.parse(JSON.stringify({
+      id: resp.surveyId || DEFAULT_SURVEY_ID,
+      slug: `przywrocona-${Date.now()}`,
+      title: 'Przywrócona ankieta',
+      description: '',
+      status: 'closed',
+      engine: 'generic',
+      fields: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      archived: true,
+    })),
+  });
+
   store.responses = store.responses.filter(r => r.id !== id);
-  
-  // Reset any associated token
   store.tokens.forEach(t => {
-    if (t.responseId === id || (resp && t.code.toUpperCase() === resp.tokenUsed.toUpperCase())) {
+    if (t.responseId === id || t.code.toUpperCase() === resp.tokenUsed.toUpperCase()) {
       t.used = false;
       delete t.usedAt;
       delete t.responseId;
@@ -182,22 +1092,105 @@ app.delete('/api/responses/:id', (req, res) => {
   });
 
   writeStore(store);
-  res.json({ success: true });
+  res.json({ success: true, trashed: true });
 });
 
 app.patch('/api/responses/:id/exclude', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store } = ctx;
   const { id } = req.params;
   const { excluded } = req.body || {};
-  const store = readStore();
   const resp = store.responses.find(r => r.id === id);
   
   if (!resp) {
+    return res.status(404).json({ success: false, error: 'Odpowiedź nie została znaleziona.' });
+  }
+  const parent = store.surveys.find((s) => s.id === resp.surveyId);
+  if (!parent || !canAccessSurvey(parent, ctx.panel.id)) {
     return res.status(404).json({ success: false, error: 'Odpowiedź nie została znaleziona.' });
   }
 
   resp.excludedFromReport = excluded !== undefined ? Boolean(excluded) : !resp.excludedFromReport;
   writeStore(store);
   res.json({ success: true, response: resp });
+});
+
+function normalizeImportedResponse(raw: any): SurveyResponse | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const payload = raw.response && typeof raw.response === 'object' ? raw.response : raw;
+  if (typeof payload.tokenUsed !== 'string' || !payload.answers || typeof payload.answers !== 'object') {
+    return null;
+  }
+  return {
+    id: typeof payload.id === 'string' && payload.id.trim() ? payload.id : `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: payload.createdAt || new Date().toISOString(),
+    tokenUsed: String(payload.tokenUsed).trim().toUpperCase(),
+    surveyId: payload.surveyId || DEFAULT_SURVEY_ID,
+    answers: payload.answers,
+    selectedFactors: payload.selectedFactors || {},
+    dimensionComments: payload.dimensionComments || {},
+    collaborationContext: payload.collaborationContext || '',
+    teamRelation: payload.teamRelation || '',
+    excludedFromReport: Boolean(payload.excludedFromReport),
+  };
+}
+
+function upsertImportedResponse(store: StoreData, response: SurveyResponse) {
+  const existingIdx = store.responses.findIndex(r => r.id === response.id);
+  if (existingIdx >= 0) {
+    store.responses[existingIdx] = { ...store.responses[existingIdx], ...response };
+  } else {
+    store.responses.push(response);
+  }
+
+  const tokenCode = response.tokenUsed.trim().toUpperCase();
+  let token = store.tokens.find(t => t.code.trim().toUpperCase() === tokenCode);
+  if (!token) {
+    token = {
+      id: `token_import_${Date.now()}`,
+      code: tokenCode || `IMP-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+      label: `Import z pliku (${tokenCode || 'bez kodu'})`,
+      used: true,
+      usedAt: response.createdAt,
+      responseId: response.id,
+      surveyId: response.surveyId || DEFAULT_SURVEY_ID,
+    };
+    store.tokens.push(token);
+  } else {
+    token.used = true;
+    token.usedAt = token.usedAt || response.createdAt;
+    token.responseId = response.id;
+  }
+}
+
+app.post('/api/responses/import', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const imported = normalizeImportedResponse(req.body);
+  if (!imported) {
+    return res.status(400).json({
+      success: false,
+      error: 'Plik nie zawiera rozpoznawalnego wyniku ankiety (wymagane pola: tokenUsed, answers).',
+    });
+  }
+
+  const { store } = ctx;
+  upsertImportedResponse(store, imported);
+  writeStore(store);
+  res.json({ success: true, response: imported });
+});
+
+app.get('/api/store/export', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const store = ctx.store;
+  res.json({
+    format: 'kubara-ewaluacja-360-store',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    ...store,
+  });
 });
 
 app.post('/api/responses', (req, res) => {
@@ -208,37 +1201,36 @@ app.post('/api/responses', (req, res) => {
 
   const store = readStore();
   const tokenCode = response.tokenUsed.trim().toUpperCase();
+  response.surveyId = response.surveyId || DEFAULT_SURVEY_ID;
+  const survey = store.surveys.find((s) => s.id === response.surveyId);
 
-  // Allow preview token
-  if (tokenCode === 'PODGLAD' || tokenCode === 'PREVIEW' || tokenCode === 'DEMO') {
-    store.responses.push(response);
-    writeStore(store);
-    return res.json({ success: true, response });
+  if (isPreviewCode(tokenCode)) {
+    const panel = panelFromRequest(req, store);
+    if (!panel || !survey || !canAccessSurvey(survey, panel.id)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Podgląd nie zapisuje odpowiedzi. Wejdź do panelu hasłem albo użyj unikalnego linku.',
+      });
+    }
+    return res.json({ success: true, response, preview: true, saved: false });
   }
 
-  const token = store.tokens.find(t => t.code.trim().toUpperCase() === tokenCode);
+  if (!survey || survey.archived || survey.status !== 'live') {
+    return res.status(400).json({
+      success: false,
+      error: 'Ta ankieta nie przyjmuje teraz odpowiedzi.',
+    });
+  }
+
+  const token = store.tokens.find(
+    (t) => t.code.trim().toUpperCase() === tokenCode && t.surveyId === response.surveyId,
+  );
 
   if (!token) {
-    // If token code is formatted like KUB-*, auto-register it to avoid locking out any recipient
-    if (tokenCode.startsWith('KUB-')) {
-      const autoToken: VoterToken = {
-        id: `token_${Date.now()}_auto`,
-        code: tokenCode,
-        label: `Współpracownik (${tokenCode})`,
-        used: true,
-        usedAt: new Date().toISOString(),
-        responseId: response.id,
-      };
-      store.tokens.push(autoToken);
-      store.responses.push(response);
-      writeStore(store);
-      return res.json({ success: true, response });
-    }
     return res.status(400).json({ success: false, error: 'Nieprawidłowy kod zaproszenia. Sprawdź swój unikalny link.' });
   }
 
   if (token.used) {
-    // If token already used, check if this is an idempotent re-submission of the same response
     if (token.responseId === response.id) {
       return res.json({ success: true, response });
     }
@@ -248,10 +1240,12 @@ app.post('/api/responses', (req, res) => {
     });
   }
 
-  // Mark token as used
   token.used = true;
   token.usedAt = new Date().toISOString();
   token.responseId = response.id;
+  if (token.test) {
+    response.excludedFromReport = true;
+  }
 
   store.responses.push(response);
   writeStore(store);
@@ -260,13 +1254,34 @@ app.post('/api/responses', (req, res) => {
 });
 
 app.post('/api/clear-responses', (req, res) => {
-  const store = readStore();
-  store.responses = [];
-  store.tokens.forEach(t => {
-    t.used = false;
-    delete t.usedAt;
-    delete t.responseId;
-  });
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  const { store, panel } = ctx;
+  const surveyId = (req.body && req.body.surveyId) || req.query.surveyId;
+  if (surveyId) {
+    const parent = store.surveys.find((s) => s.id === surveyId);
+    if (!parent || !canAccessSurvey(parent, panel.id)) {
+      return res.status(404).json({ error: 'Nie ma takiej ankiety.' });
+    }
+    store.responses = store.responses.filter(r => r.surveyId !== surveyId);
+    store.tokens.forEach(t => {
+      if (t.surveyId === surveyId) {
+        t.used = false;
+        delete t.usedAt;
+        delete t.responseId;
+      }
+    });
+  } else {
+    const ids = new Set(ownedSurveys(store, panel.id).map((s) => s.id));
+    store.responses = store.responses.filter((r) => !r.surveyId || !ids.has(r.surveyId));
+    store.tokens.forEach((t) => {
+      if (t.surveyId && ids.has(t.surveyId)) {
+        t.used = false;
+        delete t.usedAt;
+        delete t.responseId;
+      }
+    });
+  }
   writeStore(store);
   res.json({ success: true });
 });
@@ -284,14 +1299,17 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    const sendIndex = (_req: express.Request, res: express.Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
-    });
+    };
+    app.use('/panel-ankiet', express.static(distPath));
+    app.use(express.static(distPath));
+    app.get(/^\/(?!api\/).*/, sendIndex);
   }
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Survey store: ${DATA_FILE}`);
   });
 }
 
