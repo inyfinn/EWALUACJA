@@ -8,12 +8,11 @@ async function readJson(res: Response) {
 
 export async function loginWithPassword(
   password: string,
-  login = '',
-): Promise<{ token: string; panel: { id: string; name: string; login: string } }> {
+): Promise<{ token: string; panel: { id: string; name: string; login?: string } }> {
   const res = await fetch(apiUrl('api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password, login: login.trim() || undefined }),
+    body: JSON.stringify({ password }),
   });
   const data = await readJson(res);
   if (!res.ok) throw new Error(data.error || 'Nieprawidłowe hasło.');
@@ -23,7 +22,16 @@ export async function loginWithPassword(
 export interface CmsPanel {
   id: string;
   name: string;
-  login?: string;
+  password?: string;
+}
+
+export class NameTakenError extends Error {
+  suggestions: string[];
+  constructor(message: string, suggestions: string[] = []) {
+    super(message);
+    this.name = 'NameTakenError';
+    this.suggestions = suggestions;
+  }
 }
 
 export async function fetchPanels(): Promise<CmsPanel[]> {
@@ -41,7 +49,6 @@ export async function fetchManagedPanels(): Promise<CmsPanel[]> {
 export async function createPanelApi(name: string, surveyId?: string): Promise<{
   id: string;
   name: string;
-  login: string;
   password: string;
 }> {
   const res = await fetch(apiUrl('api/panels'), {
@@ -50,22 +57,25 @@ export async function createPanelApi(name: string, surveyId?: string): Promise<{
     body: JSON.stringify({ name, surveyId }),
   });
   const data = await readJson(res);
+  if (res.status === 409) {
+    throw new NameTakenError(data.error || 'Taka osoba już jest.', Array.isArray(data.suggestions) ? data.suggestions : []);
+  }
   if (!res.ok) throw new Error(data.error || 'Nie udało się utworzyć osoby z panelem.');
   return data;
 }
 
-export async function resetManagedPanelPassword(id: string): Promise<{
+export async function resetManagedPanelPassword(id: string, password?: string): Promise<{
   id: string;
   name: string;
-  login: string;
   password: string;
 }> {
   const res = await fetch(apiUrl(`api/panels/${encodeURIComponent(id)}/password`), {
     method: 'POST',
     headers: authHeaders(),
+    body: JSON.stringify(password ? { password } : {}),
   });
   const data = await readJson(res);
-  if (!res.ok) throw new Error(data.error || 'Nie udało się wygenerować nowego hasła.');
+  if (!res.ok) throw new Error(data.error || 'Nie udało się zmienić hasła.');
   return data;
 }
 

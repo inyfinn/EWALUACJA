@@ -5,12 +5,11 @@ import { InyfinnCopyright } from './InyfinnCopyright';
 import { HintTooltip } from './HintTooltip';
 
 interface AdminLoginViewProps {
-  onSuccess: (creds: { login: string; password: string }) => Promise<void> | void;
+  onSuccess: (password: string) => Promise<void> | void;
   onCancel: () => void;
 }
 
 export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCancel }) => {
-  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +20,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
     setBusy(true);
     setError(null);
     try {
-      await onSuccess({ login: login.trim(), password });
+      await onSuccess(password);
     } catch (err: any) {
       setError(err?.message || 'Nieprawidłowe hasło.');
     } finally {
@@ -49,25 +48,6 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCan
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-dk-ink/70 mb-1.5">
-              Login
-            </label>
-            <input
-              type="text"
-              value={login}
-              onChange={(e) => {
-                setLogin(e.target.value);
-                if (error) setError(null);
-              }}
-              placeholder="Login (dla nowych kont)"
-              autoComplete="username"
-              className="w-full bg-dk-bg/60 border border-dk-violet-soft rounded-xl px-3.5 py-2.5 text-sm font-normal text-dk-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-dk-violet/40"
-            />
-            <p className="mt-1.5 text-[11px] text-slate-500">
-              Kontom z listy (Karolina, Krzysztof i inni) wystarczy hasło. Nowe osoby wpisują login i hasło.
-            </p>
-          </div>
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-dk-ink/70 mb-1.5">
               Hasło

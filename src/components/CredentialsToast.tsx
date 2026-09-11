@@ -6,17 +6,15 @@ import { cmsLoginUrl } from '../utils/routerBase';
 
 export interface CreatedCredentials {
   name: string;
-  login: string;
   password: string;
   kind?: 'created' | 'password';
 }
 
-export function panelInviteMessage(login: string, password: string) {
+export function panelInviteMessage(password: string) {
   return [
     'Zapraszam do panelu ankiet:',
     cmsLoginUrl(),
     '',
-    `Login: ${login}`,
     `Hasło: ${password}`,
   ].join('\n');
 }
@@ -59,7 +57,7 @@ export function CredentialsToast({ creds, onClose }: CredentialsToastProps) {
 
   if (!creds || typeof document === 'undefined') return null;
 
-  const message = panelInviteMessage(creds.login, creds.password);
+  const message = panelInviteMessage(creds.password);
   const title = creds.kind === 'password'
     ? `Nowe hasło dla ${creds.name}`
     : `Konto dla ${creds.name} jest gotowe`;
@@ -81,16 +79,15 @@ export function CredentialsToast({ creds, onClose }: CredentialsToastProps) {
         </button>
       </div>
       <p className="text-xs text-dk-ink/70 mb-3 leading-relaxed">
-        Hasło pokazuje się tylko teraz. Skopiuj i wyślij tej osobie zaproszenie do panelu.
+        Ta osoba loguje się samym hasłem. Hasło zawsze możesz podejrzeć i wysłać w kafelku „Osoby, które dodałeś”.
       </p>
       <div className="space-y-3 rounded-xl bg-dk-bg/70 border border-dk-violet-soft px-3 py-3">
-        <CopyRow label="Login" value={creds.login} mono />
         <CopyRow label="Hasło" value={creds.password} mono />
       </div>
       <p className="mt-3 text-[11px] text-dk-ink/70 whitespace-pre-wrap leading-relaxed border border-dk-violet-soft rounded-xl px-3 py-2 bg-white">
         {message}
       </p>
-      <HintTooltip className="w-full mt-2" text="Kopiuje krótką wiadomość z linkiem do panelu, loginem i hasłem.">
+      <HintTooltip className="w-full mt-2" text="Kopiuje krótką wiadomość z linkiem do panelu i hasłem.">
         <button
           type="button"
           className="btn-dk-primary w-full"

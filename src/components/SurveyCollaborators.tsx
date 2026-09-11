@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { KeyRound, UserPlus, Users, X } from 'lucide-react';
+import { Copy, Eye, EyeOff, KeyRound, UserPlus, Users, X } from 'lucide-react';
 import { ManagedSurvey } from '../types';
 import {
   createPanelApi,
   deleteManagedPanel,
   fetchManagedPanels,
   fetchPanels,
+  NameTakenError,
   resetManagedPanelPassword,
   updateSurveyApi,
   type CmsPanel,
@@ -13,7 +14,7 @@ import {
 import { getSessionPanel } from '../utils/authSession';
 import { HintTooltip } from './HintTooltip';
 import { ConfirmPopover } from './ConfirmPopover';
-import { CredentialsToast, type CreatedCredentials } from './CredentialsToast';
+import { CredentialsToast, panelInviteMessage, type CreatedCredentials } from './CredentialsToast';
 
 const CREATE_VALUE = '__create__';
 
@@ -28,9 +29,12 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
   const [managed, setManaged] = useState<CmsPanel[]>([]);
   const [pickId, setPickId] = useState('');
   const [newName, setNewName] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<CreatedCredentials | null>(null);
+  const [showPass, setShowPass] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const reloadLists = async () => {
     const [all, mine] = await Promise.all([fetchPanels(), fetchManagedPanels()]);
@@ -70,11 +74,11 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
       if (name.length < 2) return;
       setBusy(true);
       setError(null);
+      setSuggestions([]);
       try {
         const person = await createPanelApi(name, survey.id);
         setToast({
           name: person.name,
-          login: person.login,
           password: person.password,
           kind: 'created',
         });
@@ -83,7 +87,12 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
         await reloadLists();
         await onUpdated();
       } catch (err: any) {
-        setError(err.message || 'Nie udało się utworzyć osoby z panelem.');
+        if (err instanceof NameTakenError) {
+          setError(err.message);
+          setSuggestions(err.suggestions);
+        } else {
+          setError(err.message || 'Nie udało się utworzyć osoby z panelem.');
+        }
       } finally {
         setBusy(false);
       }
@@ -103,9 +112,9 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
     setError(null);
     try {
       const next = await resetManagedPanelPassword(person.id);
+      setManaged((list) => list.map((p) => (p.id === next.id ? { ...p, password: next.password } : p)));
       setToast({
         name: next.name,
-        login: next.login,
         password: next.password,
         kind: 'password',
       });
@@ -128,6 +137,13 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
     } finally {
       setBusy(false);
     }
+  };
+
+  const copyInvite = async (person: CmsPanel) => {
+    if (!person.password) return;
+    await navigator.clipboard.writeText(panelInviteMessage(person.password));
+    setCopiedId(person.id);
+    setTimeout(() => setCopiedId((id) => (id === person.id ? null : id)), 2000);
   };
 
   const creating = pickId === CREATE_VALUE;
@@ -194,7 +210,10 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
                 value={pickId}
                 onChange={(e) => {
                   setPickId(e.target.value);
-                  if (e.target.value !== CREATE_VALUE) setNewName('');
+                  if (e.target.value !== CREATE_VALUE) {
+                    setNewName('');
+                    setSuggestions([]);
+                  }
                 }}
                 disabled={busy}
                 className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
@@ -224,14 +243,17 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
                 <input
                   type="text"
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    setSuggestions([]);
+                  }}
                   disabled={busy}
                   placeholder="Nazwa"
                   autoFocus
                   className="flex-1 min-w-[180px] px-4 py-2.5 rounded-2xl border border-dk-violet-soft text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-dk-violet/40 bg-dk-bg/50"
                   aria-label="Nazwa nowego użytkownika"
                 />
-                <HintTooltip text="Tworzy konto do logowania. Hasło wygeneruje się samo. Pokaże się raz, do skopiowania.">
+                <HintTooltip text="Tworzy konto. Ta osoba wejdzie do panelu samym hasłem.">
                   <button
                     type="submit"
                     disabled={busy || !canSubmit}
@@ -241,6 +263,24 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
                     <span>Utwórz</span>
                   </button>
                 </HintTooltip>
+              </div>
+            )}
+            {creating && suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {suggestions.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className="btn-dk-ghost !py-1 !px-3"
+                    onClick={() => {
+                      setNewName(name);
+                      setSuggestions([]);
+                      setError(null);
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
               </div>
             )}
           </form>
@@ -260,7 +300,7 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
             <div>
               <h3 className="font-semibold text-dk-ink text-base">Osoby, które dodałeś</h3>
               <p className="text-xs text-dk-ink/70 mt-1 max-w-[70ch] leading-relaxed">
-                Tu zarządzasz kontami utworzonymi z Twojego panelu: nowe hasło albo usunięcie osoby.
+                Tu zawsze zobaczysz hasło osób utworzonych z Twojego konta. Możesz je skopiować, wysłać zaproszenie, zmienić albo usunąć konto.
               </p>
             </div>
           </div>
@@ -271,41 +311,85 @@ export function SurveyCollaborators({ survey, onUpdated }: SurveyCollaboratorsPr
             </p>
           ) : (
             <ul className="space-y-2">
-              {managed.map((person) => (
-                <li
-                  key={person.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dk-violet-soft bg-dk-bg/40 px-3 py-2.5"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-dk-ink break-words">{person.name}</p>
-                    <p className="text-[11px] font-mono text-dk-ink/50 break-all">login: {person.login || person.id}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <HintTooltip text="Generuje nowe hasło. Stare przestaje działać. Nowe pokazuje się raz, do skopiowania.">
-                      <ConfirmPopover
-                        message={`Wygenerować nowe hasło dla ${person.name}? Stare hasło przestanie działać.`}
-                        confirmLabel="Nowe hasło"
-                        onConfirm={() => handleResetPassword(person)}
-                      >
-                        <button type="button" className="btn-dk-ghost !py-1.5" disabled={busy}>
-                          Nowe hasło
+              {managed.map((person) => {
+                const visible = Boolean(showPass[person.id]);
+                return (
+                  <li
+                    key={person.id}
+                    className="rounded-2xl border border-dk-violet-soft bg-dk-bg/40 px-3 py-2.5 space-y-2"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-dk-ink break-words">{person.name}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <HintTooltip text="Kopiuje wiadomość z linkiem do panelu i hasłem, żeby wkleić np. na Teams.">
+                          <button
+                            type="button"
+                            className="btn-dk-ghost !py-1.5"
+                            disabled={busy || !person.password}
+                            onClick={() => void copyInvite(person)}
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            {copiedId === person.id ? 'Skopiowano' : 'Wyślij'}
+                          </button>
+                        </HintTooltip>
+                        <HintTooltip text="Generuje nowe hasło. Stare przestaje działać.">
+                          <ConfirmPopover
+                            message={`Wygenerować nowe hasło dla ${person.name}? Stare hasło przestanie działać.`}
+                            confirmLabel="Nowe hasło"
+                            onConfirm={() => handleResetPassword(person)}
+                          >
+                            <button type="button" className="btn-dk-ghost !py-1.5" disabled={busy}>
+                              Zmień hasło
+                            </button>
+                          </ConfirmPopover>
+                        </HintTooltip>
+                        <HintTooltip text="Usuwa konto tej osoby. Zniknie też z dostępów do ankiet.">
+                          <ConfirmPopover
+                            message={`Usunąć konto ${person.name}? Ta osoba nie zaloguje się już do panelu.`}
+                            confirmLabel="Usuń konto"
+                            onConfirm={() => handleDeleteManaged(person)}
+                          >
+                            <button type="button" className="btn-dk-danger !py-1.5" disabled={busy}>
+                              Usuń
+                            </button>
+                          </ConfirmPopover>
+                        </HintTooltip>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl bg-white border border-dk-violet-soft text-sm font-mono text-dk-ink break-all">
+                        {visible ? (person.password || '') : '••••••••'}
+                      </code>
+                      <HintTooltip text={visible ? 'Ukrywa hasło.' : 'Pokazuje hasło tej osoby.'}>
+                        <button
+                          type="button"
+                          className="btn-dk-ghost !py-1.5"
+                          onClick={() => setShowPass((m) => ({ ...m, [person.id]: !visible }))}
+                          aria-label={visible ? 'Ukryj hasło' : 'Pokaż hasło'}
+                        >
+                          {visible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
-                      </ConfirmPopover>
-                    </HintTooltip>
-                    <HintTooltip text="Usuwa konto tej osoby. Zniknie też z dostępów do ankiet.">
-                      <ConfirmPopover
-                        message={`Usunąć konto ${person.name}? Ta osoba nie zaloguje się już do panelu.`}
-                        confirmLabel="Usuń konto"
-                        onConfirm={() => handleDeleteManaged(person)}
-                      >
-                        <button type="button" className="btn-dk-danger !py-1.5" disabled={busy}>
-                          Usuń
+                      </HintTooltip>
+                      <HintTooltip text="Kopiuje hasło do schowka.">
+                        <button
+                          type="button"
+                          className="btn-dk-ghost !py-1.5"
+                          disabled={!person.password}
+                          onClick={async () => {
+                            if (!person.password) return;
+                            await navigator.clipboard.writeText(person.password);
+                            setCopiedId(`pw-${person.id}`);
+                            setTimeout(() => setCopiedId((id) => (id === `pw-${person.id}` ? null : id)), 2000);
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          {copiedId === `pw-${person.id}` ? 'OK' : 'Hasło'}
                         </button>
-                      </ConfirmPopover>
-                    </HintTooltip>
-                  </div>
-                </li>
-              ))}
+                      </HintTooltip>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

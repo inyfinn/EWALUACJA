@@ -325,6 +325,36 @@ function panelByPassword(store: StoreData, password: string) {
   return allPanels(store).find((p) => normPass(p.password) === needle) || null;
 }
 
+function panelNameKey(name: string) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function panelNameTaken(store: StoreData, name: string, exceptId?: string) {
+  const key = panelNameKey(name);
+  if (!key) return false;
+  return allPanels(store).some((p) => p.id !== exceptId && panelNameKey(p.name) === key);
+}
+
+function suggestPanelNames(store: StoreData, name: string): string[] {
+  const base = name.trim().replace(/\s+/g, ' ');
+  if (base.length < 2) return [];
+  const out: string[] = [];
+  const tryAdd = (candidate: string) => {
+    if (candidate.length < 2) return;
+    if (panelNameTaken(store, candidate)) return;
+    if (out.some((x) => panelNameKey(x) === panelNameKey(candidate))) return;
+    out.push(candidate);
+  };
+  for (let n = 2; n <= 12 && out.length < 6; n += 1) tryAdd(`${base} ${n}`);
+  tryAdd(`${base} Bis`);
+  tryAdd(`Nowy ${base}`);
+  tryAdd(`${base} B`);
+  const slug = slugify(base);
+  if (slug && slug !== panelNameKey(base)) tryAdd(slug);
+  for (let n = 2; n <= 8 && out.length < 6; n += 1) tryAdd(`${slug}-${n}`);
+  return out.slice(0, 6);
+}
+
 function uniquePanelId(store: StoreData, name: string): string {
   const base = slugify(name) || `osoba-${Date.now().toString(36)}`;
   const taken = new Set(allPanels(store).map((p) => p.id));
@@ -380,20 +410,10 @@ function ownedSurveys(store: StoreData, panelId: string) {
 
 app.post('/api/auth/login', (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const loginRaw = typeof req.body?.login === 'string' ? req.body.login.trim() : '';
   const store = readStore();
-  let panel: StoredPanel | null = null;
-  if (loginRaw) {
-    const loginNeedle = loginRaw.toLowerCase();
-    const needle = normPass(password);
-    panel = allPanels(store).find((p) =>
-      panelLogin(p).toLowerCase() === loginNeedle && normPass(p.password) === needle,
-    ) || null;
-  } else {
-    panel = panelByPassword(store, password);
-  }
+  const panel = panelByPassword(store, password);
   if (!panel) {
-    return res.status(401).json({ error: loginRaw ? 'Nieprawidłowy login lub hasło.' : 'Nieprawidłowe hasło.' });
+    return res.status(401).json({ error: 'Nieprawidłowe hasło.' });
   }
   const token = crypto.randomBytes(24).toString('hex');
   store.sessions.push({ token, panelId: panel.id, createdAt: new Date().toISOString() });
@@ -435,7 +455,7 @@ app.get('/api/panels/managed', (req, res) => {
   if (!ctx) return;
   const { store, panel } = ctx;
   const managed = (store.panels || []).filter((p) => p.createdBy === panel.id && !builtinPanelIds().has(p.id));
-  res.json(managed.map(publicPanel));
+  res.json(managed.map((p) => ({ id: p.id, name: p.name, password: p.password })));
 });
 
 app.get('/api/panels', (req, res) => {
@@ -459,6 +479,12 @@ app.post('/api/panels', (req, res) => {
     if (!survey || !canAccessSurvey(survey, panel.id)) {
       return res.status(404).json({ error: 'Nie ma takiej ankiety, żeby dodać do niej tę osobę.' });
     }
+  }
+  if (panelNameTaken(store, name)) {
+    return res.status(409).json({
+      error: `Osoba „${name}” już jest. Wybierz inną nazwę.`,
+      suggestions: suggestPanelNames(store, name),
+    });
   }
   const id = uniquePanelId(store, name);
   const password = generatePanelPassword(allPanels(store));
@@ -492,11 +518,24 @@ app.post('/api/panels/:id/password', (req, res) => {
   if (!target || target.createdBy !== panel.id) {
     return res.status(404).json({ error: 'Nie ma takiej osoby na Twojej liście.' });
   }
-  const password = generatePanelPassword(allPanels(store));
+  const custom = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
+  let password = '';
+  if (custom) {
+    if (custom.length < 6) {
+      return res.status(400).json({ error: 'Hasło musi mieć minimum 6 znaków.' });
+    }
+    const clash = allPanels(store).some((p) => p.id !== target.id && normPass(p.password) === normPass(custom));
+    if (clash) {
+      return res.status(400).json({ error: 'To hasło jest już używane. Wpisz inne albo wygeneruj nowe.' });
+    }
+    password = custom;
+  } else {
+    password = generatePanelPassword(allPanels(store));
+  }
   target.password = password;
   store.sessions = store.sessions.filter((s) => s.panelId !== target.id);
   writeStore(store);
-  res.json({ id: target.id, name: target.name, login: panelLogin(target), password });
+  res.json({ id: target.id, name: target.name, password });
 });
 
 app.delete('/api/panels/:id', (req, res) => {
