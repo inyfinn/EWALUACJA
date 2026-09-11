@@ -332,7 +332,7 @@ Dziękuję za Twój czas i pomoc!`;
 
       {/* List of Tokens with Direct Links and One-Click Copy */}
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-visible shadow-xs">
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-16 z-20 bg-white">
+        <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-t-3xl bg-white">
           <div>
             <h3 className="font-semibold text-dk-ink text-base">Linki do wysłania ankietowanym</h3>
             <p className="text-xs text-slate-500 mt-0.5">
