@@ -37,7 +37,11 @@ export function SurveyListPage() {
       setSelected((ids) => ids.filter((id) => list.some((s) => s.id === id)));
       setError(null);
     } catch (e: any) {
-      setError(e.message || 'Błąd listy ankiet');
+      const message = e.message || 'Nie udało się pobrać listy ankiet.';
+      setError(message);
+      if (/sesja wygasła/i.test(message)) {
+        navigate('/cms/login', { replace: true, state: { from: '/cms' } });
+      }
     }
   };
 

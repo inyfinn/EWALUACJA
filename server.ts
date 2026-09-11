@@ -396,10 +396,21 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: loginRaw ? 'Nieprawidłowy login lub hasło.' : 'Nieprawidłowe hasło.' });
   }
   const token = crypto.randomBytes(24).toString('hex');
-  store.sessions = store.sessions.filter((s) => s.panelId !== panel.id);
   store.sessions.push({ token, panelId: panel.id, createdAt: new Date().toISOString() });
+  const mine = store.sessions.filter((s) => s.panelId === panel.id)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (mine.length > 10) {
+    const drop = new Set(mine.slice(0, mine.length - 10).map((s) => s.token));
+    store.sessions = store.sessions.filter((s) => !drop.has(s.token));
+  }
   writeStore(store);
   res.json({ token, panel: publicPanel(panel) });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const ctx = requirePanel(req, res);
+  if (!ctx) return;
+  res.json({ panel: publicPanel(ctx.panel) });
 });
 
 app.post('/api/auth/logout', (req, res) => {

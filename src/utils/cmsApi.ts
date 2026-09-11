@@ -78,10 +78,19 @@ export async function deleteManagedPanel(id: string): Promise<void> {
   if (!res.ok) throw new Error(data.error || 'Nie udało się usunąć tej osoby.');
 }
 
+export async function fetchSession(): Promise<{ panel: { id: string; name: string; login?: string } }> {
+  const res = await fetch(apiUrl('api/auth/me'), { headers: authHeaders(false) });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || 'Sesja wygasła. Wejdź ponownie hasłem.');
+  return data;
+}
+
 export async function fetchSurveys(): Promise<ManagedSurvey[]> {
   const res = await fetch(apiUrl('api/surveys'), { headers: authHeaders(false) });
-  if (!res.ok) throw new Error('Nie udało się pobrać listy ankiet.');
-  return res.json();
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || 'Nie udało się pobrać listy ankiet.');
+  if (!Array.isArray(data)) throw new Error('Nie udało się pobrać listy ankiet.');
+  return data;
 }
 
 export async function fetchSurvey(id: string): Promise<ManagedSurvey> {
